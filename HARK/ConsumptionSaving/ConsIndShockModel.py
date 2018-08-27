@@ -21,7 +21,11 @@ from builtins import object
 from copy import copy, deepcopy
 import numpy as np
 from scipy.optimize import newton
-from HARK import AgentType, Solution, NullFunc, HARKobject
+ 
+import os
+os.chdir('/Users/nomad/GitHub/HARK/')
+
+from HARK.core import AgentType, Solution, NullFunc, HARKobject
 from HARK.utilities import warnings  # Because of "patch" to warnings modules
 from HARK.interpolation import CubicInterp, LowerEnvelope, LinearInterp
 from HARK.simulation import drawDiscrete, drawBernoulli, drawLognormal, drawUniform
@@ -520,6 +524,7 @@ def solvePerfForesight(solution_next,DiscFac,LivPrb,CRRA,Rfree,PermGroFac):
     solver = ConsPerfForesightSolver(solution_next,DiscFac,LivPrb,CRRA,Rfree,PermGroFac)
     solution = solver.solve()
     return solution
+
 
 
 ###############################################################################
@@ -2410,7 +2415,7 @@ def constructAssetsGrid(parameters):
 ####################################################################################################
 
 def main():
-    from . import ConsumerParameters as Params
+    import ConsumerParameters as Params
     from HARK.utilities import plotFuncsDer, plotFuncs
     from time import clock
     mystr = lambda number : "{:.4f}".format(number)
