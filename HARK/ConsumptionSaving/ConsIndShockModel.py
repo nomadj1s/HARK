@@ -22,14 +22,16 @@ from copy import copy, deepcopy
 import numpy as np
 from scipy.optimize import newton
  
+import sys 
 import os
-os.chdir('/Users/nomad/GitHub/HARK/')
+sys.path.insert(0, os.path.abspath('../'))
+sys.path.insert(0, os.path.abspath('./'))
 
-from HARK.core import AgentType, Solution, NullFunc, HARKobject
-from HARK.utilities import warnings  # Because of "patch" to warnings modules
-from HARK.interpolation import CubicInterp, LowerEnvelope, LinearInterp
-from HARK.simulation import drawDiscrete, drawBernoulli, drawLognormal, drawUniform
-from HARK.utilities import approxMeanOneLognormal, addDiscreteOutcomeConstantMean,\
+from core import AgentType, Solution, NullFunc, HARKobject
+from utilities import warnings  # Because of "patch" to warnings modules
+from interpolation import CubicInterp, LowerEnvelope, LinearInterp
+from simulation import drawDiscrete, drawBernoulli, drawLognormal, drawUniform
+from utilities import approxMeanOneLognormal, addDiscreteOutcomeConstantMean,\
                            combineIndepDstns, makeGridExpMult, CRRAutility, CRRAutilityP, \
                            CRRAutilityPP, CRRAutilityP_inv, CRRAutility_invP, CRRAutility_inv, \
                            CRRAutilityP_invP
@@ -2416,7 +2418,7 @@ def constructAssetsGrid(parameters):
 
 def main():
     import ConsumerParameters as Params
-    from HARK.utilities import plotFuncsDer, plotFuncs
+    from utilities import plotFuncsDer, plotFuncs
     from time import clock
     mystr = lambda number : "{:.4f}".format(number)
 

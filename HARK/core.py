@@ -15,11 +15,11 @@ from builtins import object
 import sys
 import os
 from distutils.dir_util import copy_tree
-from .utilities import getArgNames, NullFunc
+from utilities import getArgNames, NullFunc
 from copy import copy, deepcopy
 import numpy as np
 from time import clock
-from .parallel import multiThreadCommands, multiThreadCommandsFake
+from parallel import multiThreadCommands, multiThreadCommandsFake
 
 def distanceMetric(thing_A,thing_B):
     '''

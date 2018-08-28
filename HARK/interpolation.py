@@ -10,7 +10,7 @@ from __future__ import division, print_function
 from __future__ import absolute_import
 from builtins import range
 import numpy as np
-from .core import HARKobject
+from core import HARKobject
 from copy import deepcopy
 
 def _isscalar(x):
