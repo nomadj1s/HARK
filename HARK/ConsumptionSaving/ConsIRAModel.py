@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.abspath('./'))
 
 from core import AgentType, NullFunc, HARKobject
 from interpolation import CubicInterp, LowerEnvelope, LinearInterp
+from ConsIndShockModel import ConsumerSolution
 from simulation import drawDiscrete, drawBernoulli, drawLognormal, drawUniform
 from utilities import approxMeanOneLognormal, addDiscreteOutcomeConstantMean,\
                            combineIndepDstns, makeGridExpMult, CRRAutility, CRRAutilityP, \
@@ -40,7 +41,7 @@ utility_invP  = CRRAutility_invP
 utility_inv   = CRRAutility_inv
 utilityP_invP = CRRAutilityP_invP
 
-class ConsumerIRASolution(ConsumerSolution):
+class ConsIRASolution(HARKobject):
     '''
     A class representing the solution of a single period of a 
     consumption-saving model with a liquid account and an IRA-like illiquid
@@ -110,3 +111,8 @@ class ConsumerIRASolution(ConsumerSolution):
         self.hNrm         = hNrm
         self.MPCmin       = MPCmin
         self.MPCmax       = MPCmax
+        
+class ConsIRASolver(object):
+    '''
+    
+    '''
