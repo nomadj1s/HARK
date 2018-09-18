@@ -17,7 +17,7 @@ from builtins import range
 from builtins import object
 from copy import copy, deepcopy
 import numpy as np
-from scipy.optimize import minimzie_scalar
+from scipy.optimize import minimize_scalar
 
 import sys 
 import os
@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.abspath('./'))
 
 from core import AgentType, NullFunc, HARKobject
 from interpolation import CubicInterp, LowerEnvelope, LinearInterp
-from ConsIndShockModel import ConsumerSolution, ConsKinkedRsolver
+from ConsIndShockModel import ConsumerSolution, ConsIndShockSolver
 from simulation import drawDiscrete, drawBernoulli, drawLognormal, drawUniform
 from utilities import approxMeanOneLognormal, addDiscreteOutcomeConstantMean,\
                            combineIndepDstns, makeGridExpMult, CRRAutility, CRRAutilityP, \
@@ -119,7 +119,7 @@ class ConsIRASolution(HARKobject):
         self.MPCmin       = MPCmin
         self.MPCmax       = MPCmax
         
-class ConsIRASolver(ConsKinkedRsolver):
+class ConsIRASolver(ConsIndShockSolver):
     '''
     A class for solving a single period of a consumption-savigs problem with
     a liquid savings account, and an IRA-like illiquid savings account. Model
@@ -127,9 +127,10 @@ class ConsIRASolver(ConsKinkedRsolver):
     shocks to income, different interest rates for borowing and saving in the
     liquid account, and a separate interest rate for the illiquid acocunt.
     
-    Inherits from ConsKinkedRsolver, with additional requirements of Rira, with
-    the restriction that Rboro > Rira > Rsave. Also requires the early
-    withdrawal penalty, PenIRA, and a grid for illiquid balance, bXtraGrid.
+    Inherits from ConsIndShockSolver, with additional inputs Rboro, Rsave, and
+    Rira, which satsify the restriction that Rboro > Rira > Rsave. Also 
+    requires the early withdrawal penalty, PenIRA, and a grid for illiquid 
+    balance, bXtraGrid.
     '''
     def __init__(self,solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,
                      Rboro,Rsave,Rira,PenIRA,PermGroFac,BoroCnstArt,aXtraGrid,
@@ -193,7 +194,9 @@ class ConsIRASolver(ConsKinkedRsolver):
         '''
         assert Rboro>=Rira>=Rsave, 'Interest factors must satisfy Rboro>=Rira>=Rsave'
         
-        # Set notation
+        # We ask that HARK users define single-letter variables they use in a 
+        # dictionary attribute called notation.
+        # Do that first.
         self.notation = {'a': 'liquid assets after all actions',
                          'b': 'illiquid assets after all actions',
                          'm': 'liquid market resources at decision time',
@@ -203,11 +206,13 @@ class ConsIRASolver(ConsKinkedRsolver):
         
         # Initialize the solver.  Most of the steps are exactly the same as in
         # kinked-R basic case, so start with that.
-        ConsKinkedRsolver.__init__(self,solution_next,IncomeDstn,LivPrb,
-                                   DiscFac,CRRA,Rboro,Rsave,PermGroFac,
-                                   BoroCnstArt,aXtraGrid,vFuncBool,CubicBool)
+        ConsIndShockSolver.__init__(self,solution_next,IncomeDstn,LivPrb,
+                                   DiscFac,CRRA,Rsave,PermGroFac,BoroCnstArt,
+                                   aXtraGrid,vFuncBool,CubicBool)
         
-        # Assign illiquid interest rate, illiquid asset grid, and IRA penalty.
+        # Assign factors, illiquid asset grid, and IRA penalty.
+        self.Rboro        = Rboro
+        self.Rsave        = Rsave
         self.Rira         = Rira
         self.PenIRA       = PenIRA
         self.bXtraGrid    = bXtraGrid
