@@ -192,7 +192,10 @@ class ConsIRASolver(ConsIndShockSolver):
         -------
         None
         '''
-        assert Rboro>=Rira>=Rsave, 'Interest factors must satisfy Rboro>=Rira>=Rsave'
+        assert Rboro>=Rira>=Rsave, 'Interest factors must satisfy \
+                                       Rboro>=Rira>=Rsave'
+        assert vFuncBool == True, 'Must calculate value function \
+                                      vFuncBool == True'
         
         # We ask that HARK users define single-letter variables they use in a 
         # dictionary attribute called notation.
@@ -216,4 +219,5 @@ class ConsIRASolver(ConsIndShockSolver):
         self.Rira         = Rira
         self.PenIRA       = PenIRA
         self.bXtraGrid    = bXtraGrid
-    
+
+
