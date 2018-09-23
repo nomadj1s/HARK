@@ -229,7 +229,7 @@ class ConsIRASolver(ConsIndShockSolver):
         self.DistIRA      = DistIRA
         self.bXtraGrid    = bXtraGrid
         
-    def defBoroCnst(self,BoroCnstArt,bXtraGrid):
+    def defBoroCnst(self,BoroCnstArt):
         '''
         Calculates the borrowing constraint, conditional on the amount of
         normalized assets in the illiquid account. Uses the artificial and 
@@ -269,8 +269,8 @@ class ConsIRASolver(ConsIndShockSolver):
         
         # Calculate the minimum allowable value of money resources in this 
         # period, when b = 0
-        BoroCnstNat0 = (self.solution_next.mNrmMin0 - self.TranShkMinNext)*\
-                           (self.PermGroFac*self.PermShkMinNext)/self.Rfree
+        BoroCnstNat0 = ((self.solution_next.mNrmMin0 - self.TranShkMinNext)*
+                           (self.PermGroFac*self.PermShkMinNext)/self.Rfree)
                            
         # Create natural borrowing constraint for different values of b
         self.BoroCnstNat = BoroCnstNat0 - np.append([0],bPDVFactor*np.asarray(
@@ -292,10 +292,13 @@ class ConsIRASolver(ConsIndShockSolver):
         else:
             self.MPCmaxEff = self.MPCmaxNow
     
-    def prepareToSolve(self):
+    def prepareToCalcEndOfPrdvANDvP(self):
         '''
-        Perform preparatory work before calculating the unconstrained 
-        consumption function.
+        Prepare to calculate end-of-period value function and marginal value 
+        by creating an array of liquid market resources and illiquid resources 
+        that the agent could have next period, considering the grid of 
+        end-of-period liquid and illiquid assets and the distribution of shocks 
+        she might experience next period.
 
         Parameters
         ----------
@@ -303,10 +306,51 @@ class ConsIRASolver(ConsIndShockSolver):
 
         Returns
         -------
-        none
+        aNrmNow : np.array
+            A 2D array of end-of-period liquid assets; also stored as attribute 
+            of self.
+        bNrmNow : np.array
+            A 1D array of end-of-period illiquid assets; also stored as 
+            attribute of self.
         '''
-        self.setAndUpdateValues(self.solution_next,self.IncomeDstn,
-                                self.LivPrb,self.DiscFac)
-        self.defBoroCnst(self.BoroCnstArt,self.bXtraGrid)
+        bNrmNow     = np.insert(self.bXtraGrid,0,0.0)
+        bNrmCount   = bNrmNow.shape[0]
+        aNrmNow     = np.tile(np.insert(self.aXtraGrid,0,0.0),(bNrmCount,1)) \
+                      + np.transpose([self.aNrmMinb])
+                      
+        ShkCount    = self.TranShkValsNext.size
+        aNrm_temp   = np.transpose(np.tile(aNrmNow,(ShkCount,1,1)),(1,0,2))
+        bNrm_temp   = np.tile(bNrmNow,(ShkCount,1))
+
+        # Tile arrays of the income shocks and put them into useful shapes
+        aNrmCount         = aNrmNow.shape[1]
+        PermShkVals_temp  = np.transpose(np.tile(self.PermShkValsNext,
+                                                 (bNrmCount,aNrmCount,1)),
+                                                                    (0,2,1))
+        TranShkVals_temp  = np.transpose(np.tile(self.TranShkValsNext,
+                                                 (bNrmCount,aNrmCount,1)),
+                                                                    (0,2,1))
+        ShkPrbs_temp      = np.transpose(np.tile(self.ShkPrbsNext,
+                                                 (bNrmCount,aNrmCount,1)),
+                                                                    (0,2,1))
+            
+        # Make a 2D array of the interest factor at each asset gridpoint
+        Rfree_Mat = self.Rsave*np.ones(aNrmNow.shape)
+        Rfree_Mat[aNrmNow < 0] = self.Rboro
+            
+        # Get liquid assets next period
+        mNrmNext   = Rfree_Mat[:, np.newaxis]/(self.PermGroFac*
+                              PermShkVals_temp)*aNrm_temp + TranShkVals_temp
+                            
+        # Get illiquid assets nex period
+        nNrmNext   = self.Rira/(self.PermGroFac*PermShkVals_temp[0])*bNrm_temp
+
+        # Store and report the results
+        self.PermShkVals_temp  = PermShkVals_temp
+        self.ShkPrbs_temp      = ShkPrbs_temp
+        self.mNrmNext          = mNrmNext
+        self.nNrmNext          = nNrmNext
+        self.aNrmNow           = aNrmNow
+        return aNrmNow, bNrmNow
 
 
