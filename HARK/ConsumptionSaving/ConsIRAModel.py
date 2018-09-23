@@ -55,7 +55,7 @@ class ConsIRASolution(HARKobject):
     distance_criteria = ['cFunc','dFunc']
     
     def __init__(self, cFunc=None, dFunc=None, vFunc=None,
-                       vPfunc=None, vPPfunc=None, mNrmMin=None, 
+                       vPfunc=None, vPPfunc=None, mNrmMin=None, mNrmMin0=None,
                        nNrmMin=None, hNrm=None, MPCmin=None, MPCmax=None):
         '''
         The constructor for a new ConsumerIRASolution object.
@@ -80,7 +80,7 @@ class ConsIRASolution(HARKobject):
         mNrmMin : float
             The minimum allowable liquid market resources for this period; 
             the consumption function (etc) are undefined for m < mNrmMin.
-        mNrmMin : float
+        mNrmMin0 : float
             The minimum allowable liquid market resources for this period,
             conditional on having zero illiquid assets
         nNrmMin : float
@@ -278,8 +278,8 @@ class ConsIRASolver(ConsIndShockSolver):
                            
         # Note: need to be sure to handle BoroCnstArt==None appropriately. 
         # In Py2, this would evaluate to 5.0:  np.max([None, 5.0]).
-        # However in Py3, this raises a TypeError. Thus here we need to directly 
-        # address the situation in which BoroCnstArt == None:
+        # However in Py3, this raises a TypeError. Thus here we need to 
+        # directly address the situation in which BoroCnstArt == None:
         if BoroCnstArt is None:
             self.mNrmMin0 = BoroCnstNat0
             self.aNrmMinb = self.BoroCnstNat
@@ -291,5 +291,22 @@ class ConsIRASolver(ConsIndShockSolver):
             self.MPCmaxEff = 1.0 # If actually constrained, MPC near limit is 1
         else:
             self.MPCmaxEff = self.MPCmaxNow
+    
+    def prepareToSolve(self):
+        '''
+        Perform preparatory work before calculating the unconstrained 
+        consumption function.
+
+        Parameters
+        ----------
+        none
+
+        Returns
+        -------
+        none
+        '''
+        self.setAndUpdateValues(self.solution_next,self.IncomeDstn,
+                                self.LivPrb,self.DiscFac)
+        self.defBoroCnst(self.BoroCnstArt,self.bXtraGrid)
 
 
