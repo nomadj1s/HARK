@@ -29,9 +29,9 @@ from interpolation import CubicInterp, LowerEnvelope, LinearInterp
 from ConsIndShockModel import ConsumerSolution, ConsIndShockSolver
 from simulation import drawDiscrete, drawBernoulli, drawLognormal, drawUniform
 from utilities import approxMeanOneLognormal, addDiscreteOutcomeConstantMean,\
-                           combineIndepDstns, makeGridExpMult, CRRAutility, CRRAutilityP, \
-                           CRRAutilityPP, CRRAutilityP_inv, CRRAutility_invP, CRRAutility_inv, \
-                           CRRAutilityP_invP 
+                           combineIndepDstns, makeGridExpMult, CRRAutility, \
+                           CRRAutilityP, CRRAutilityPP, CRRAutilityP_inv, \
+                           CRRAutility_invP, CRRAutility_inv, CRRAutilityP_invP 
 
 utility       = CRRAutility
 utilityP      = CRRAutilityP
@@ -80,6 +80,9 @@ class ConsIRASolution(HARKobject):
         mNrmMin : float
             The minimum allowable liquid market resources for this period; 
             the consumption function (etc) are undefined for m < mNrmMin.
+        mNrmMin : float
+            The minimum allowable liquid market resources for this period,
+            conditional on having zero illiquid assets
         nNrmMin : float
             The minimum allowable illiquid account balance for this period; 
             the consumption function (etc) are undefined for n < nNrmMin.
@@ -114,6 +117,7 @@ class ConsIRASolution(HARKobject):
         self.vPfunc       = vPfunc
         self.vPPfunc      = vPPfunc
         self.mNrmMin      = mNrmMin
+        self.mNrmMin0     = mNrmMin0
         self.nNrmMin      = nNrmMin
         self.hNrm         = hNrm
         self.MPCmin       = MPCmin
@@ -132,8 +136,8 @@ class ConsIRASolver(ConsIndShockSolver):
     requires the early withdrawal penalty, PenIRA, and a grid for illiquid 
     balance, bXtraGrid.
     '''
-    def __init__(self,solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,
-                     Rboro,Rsave,Rira,PenIRA,PermGroFac,BoroCnstArt,aXtraGrid,
+    def __init__(self,solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,Rsave,
+                     Rira,PenIRA,DistIRA,PermGroFac,BoroCnstArt,aXtraGrid,
                      bXtraGrid,vFuncBool,CubicBool):
         '''
         Constructor for a new solver for problems with risky income, a liquid
@@ -168,6 +172,8 @@ class ConsIRASolver(ConsIndShockSolver):
         PenIRA: float
             Penalty for early withdrawals (d < 0) from the illiqui account, 
             i.e. before t = T_ira.
+        DistIRA: float
+            Number of periods between current period and T_ira, i.e. T_ira - t
         PermGroFac : float
             Expected permanent income growth factor at the end of this period.
         BoroCnstArt: float or None
@@ -204,6 +210,8 @@ class ConsIRASolver(ConsIndShockSolver):
                          'b': 'illiquid assets after all actions',
                          'm': 'liquid market resources at decision time',
                          'n': 'illiduid market resources at decisiont time',
+                         'l': 'liquid market resource at decision time, net \
+                               of illiquid deposits',
                          'c': 'consumption',
                          'd': 'illiquid deposit'}
         
@@ -218,6 +226,70 @@ class ConsIRASolver(ConsIndShockSolver):
         self.Rsave        = Rsave
         self.Rira         = Rira
         self.PenIRA       = PenIRA
+        self.DistIRA      = DistIRA
         self.bXtraGrid    = bXtraGrid
+        
+    def defBoroCnst(self,BoroCnstArt,bXtraGrid):
+        '''
+        Calculates the borrowing constraint, conditional on the amount of
+        normalized assets in the illiquid account. Uses the artificial and 
+        natural borrowing constraints.
+
+        Parameters
+        ----------
+        BoroCnstArt : float or None
+            Borrowing constraint for the minimum allowable assets to end the
+            period with.  If it is less than the natural borrowing constraint,
+            then it is irrelevant; BoroCnstArt=None indicates no artificial 
+            borrowing constraint.
+            
+        bXtraGrid : np.array
+            Array of "extra" end-of-period illiquid asset values-- assets above 
+            the absolute minimum acceptable level.
+
+        Returns
+        -------
+        none
+        '''
+        # Calculate PDV factor for illiquid assets next period when
+        # a. account is liquidated next period
+        if self.DistIRA > 1: # There is a penalty tomorrow
+            bPDVFactorWithdrawNext = (1 - self.PenIRA)*(self.Rira/self.Rboro)
+        else: # No penalty tomorrow
+            bPDVFactorWithdrawNext = (self.Rira/self.Rboro)
+        
+        # b. account isn't liquidated until T_ira
+        if self.DistIRA > 0:
+            bPDVFactorWithdrawT_ira = (self.Rira/self.Rboro)**self.DistIRA
+        else:
+            bPDVFactorWithdrawT_ira = (self.Rira/self.Rboro)
+        
+        # Take maximum PDV factor
+        bPDVFactor = max(bPDVFactorWithdrawNext,bPDVFactorWithdrawT_ira)
+        
+        # Calculate the minimum allowable value of money resources in this 
+        # period, when b = 0
+        BoroCnstNat0 = (self.solution_next.mNrmMin0 - self.TranShkMinNext)*\
+                           (self.PermGroFac*self.PermShkMinNext)/self.Rfree
+                           
+        # Create natural borrowing constraint for different values of b
+        self.BoroCnstNat = BoroCnstNat0 - np.append([0],bPDVFactor*np.asarray(
+                        self.bXtraGrid))
+                           
+        # Note: need to be sure to handle BoroCnstArt==None appropriately. 
+        # In Py2, this would evaluate to 5.0:  np.max([None, 5.0]).
+        # However in Py3, this raises a TypeError. Thus here we need to directly 
+        # address the situation in which BoroCnstArt == None:
+        if BoroCnstArt is None:
+            self.mNrmMin0 = BoroCnstNat0
+            self.aNrmMinb = self.BoroCnstNat
+        else:
+            self.mNrmMin0 = np.max([BoroCnstNat0,BoroCnstArt])
+            self.aNrmMinb = np.maximum(BoroCnstArt,self.BoroCnstNat)
+            
+        if BoroCnstNat0 < self.mNrmMin0: 
+            self.MPCmaxEff = 1.0 # If actually constrained, MPC near limit is 1
+        else:
+            self.MPCmaxEff = self.MPCmaxNow
 
 
