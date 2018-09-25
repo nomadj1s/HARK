@@ -292,7 +292,7 @@ class ConsIRASolver(ConsIndShockSolver):
         else:
             self.MPCmaxEff = self.MPCmaxNow
     
-    def prepareToCalcEndOfPrdvANDvP(self):
+    def prepareToCalcEndOfPrdvAndvP(self):
         '''
         Prepare to calculate end-of-period value function and marginal value 
         by creating an array of liquid market resources and illiquid resources 
@@ -307,13 +307,14 @@ class ConsIRASolver(ConsIndShockSolver):
         Returns
         -------
         aNrmNow : np.array
-            A 2D array of end-of-period liquid assets; also stored as attribute 
-            of self.
+            A 1D or 2D array of end-of-period liquid assets; also stored as 
+            attribute of self.
         bNrmNow : np.array
             A 1D array of end-of-period illiquid assets; also stored as 
-            attribute of self.
+            attribute of self. Can potentially include only one element, when
+            bXtraGrid = [].
         '''
-        bNrmNow     = np.insert(self.bXtraGrid,0,0.0)
+        bNrmNow     = np.insert(np.asarray(self.bXtraGrid),0,0.0)
         bNrmCount   = bNrmNow.shape[0]
         aNrmNow     = np.tile(np.insert(self.aXtraGrid,0,0.0),(bNrmCount,1)) \
                       + np.transpose([self.aNrmMinb])
@@ -333,6 +334,9 @@ class ConsIRASolver(ConsIndShockSolver):
         ShkPrbs_temp      = np.transpose(np.tile(self.ShkPrbsNext,
                                                  (bNrmCount,aNrmCount,1)),
                                                                     (0,2,1))
+        
+        PermShkVals_temp_b = (np.tile(self.PermShkValsNext,(bNrmCount,1))
+                                                                  ).transpose()
             
         # Make a 2D array of the interest factor at each asset gridpoint
         Rfree_Mat = self.Rsave*np.ones(aNrmNow.shape)
@@ -343,14 +347,47 @@ class ConsIRASolver(ConsIndShockSolver):
                               PermShkVals_temp)*aNrm_temp + TranShkVals_temp
                             
         # Get illiquid assets nex period
-        nNrmNext   = self.Rira/(self.PermGroFac*PermShkVals_temp[0])*bNrm_temp
+        nNrmNext   = self.Rira/(self.PermGroFac*PermShkVals_temp_b)*bNrm_temp
+        
+        # If bXtragrid = [], remove extraneous dimension from arrays
+        if self.bXtragrid.size == 0:
+            for x in [aNrmNow,nNrmNext,mNrmNext,PermShkVals_temp,ShkPrbs_temp,
+                      TranShkVals_temp,Rfree_Mat]:
+             x = x[0]
 
         # Store and report the results
+        self.Rfree_Mat         = Rfree_Mat
         self.PermShkVals_temp  = PermShkVals_temp
         self.ShkPrbs_temp      = ShkPrbs_temp
         self.mNrmNext          = mNrmNext
         self.nNrmNext          = nNrmNext
         self.aNrmNow           = aNrmNow
+        self.bNrmNow           = bNrmNow
         return aNrmNow, bNrmNow
 
+    def calcEndOfPrdvAndvP(self):
+        '''
+        Calculate end-of-period value function and marginal value function 
+        each point along the aNrmNow and bNrmNow grids. Does so by taking a 
+        weighted sum of next period value function and marginal values across 
+        income shocks (in a preconstructed grid self.mNrmNext and self.nNrmNext).
+
+        Parameters
+        ----------
+        none
+
+        Returns
+        -------
+        EndOfPrdv  : np.array
+            
+        
+        EndOfPrdvP : np.array
+            An array of marginal value with respect to liquid assets, given 
+            end of period liquid and illiquid assets.
+        '''
+
+        EndOfPrdvP  = self.DiscFacEff*self.Rfree_Mat*self.PermGroFac**(-self.CRRA)*np.sum(
+                      self.PermShkVals_temp**(-self.CRRA)*
+                      self.vPfuncNext(self.mNrmNext,self.nNrmNext)*self.ShkPrbs_temp,axis=0)
+        return EndOfPrdvP
 
