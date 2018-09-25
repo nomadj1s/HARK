@@ -314,17 +314,18 @@ class ConsIRASolver(ConsIndShockSolver):
             attribute of self. Can potentially include only one element, when
             bXtraGrid = [].
         '''
-        bNrmNow     = np.insert(np.asarray(self.bXtraGrid),0,0.0)
-        bNrmCount   = bNrmNow.shape[0]
-        aNrmNow     = np.tile(np.insert(self.aXtraGrid,0,0.0),(bNrmCount,1)) \
-                      + np.transpose([self.aNrmMinb])
-                      
+        bNrmCount   = np.asarray(self.bXtraGrid).size + 1
+        aNrmCount   = np.asarray(self.aXtraGrid).size + 1
+        bNrmNow     = np.tile(np.insert(np.asarray(self.bXtraGrid),0,0.0)[:, 
+                              np.newaxis],(1,5))
+        aNrmNow     = np.tile(np.insert(np.asarray(self.aXtraGrid),0,0.0),
+                              (bNrmCount,1)) + np.transpose([self.aNrmMinb])
+                 
         ShkCount    = self.TranShkValsNext.size
         aNrm_temp   = np.transpose(np.tile(aNrmNow,(ShkCount,1,1)),(1,0,2))
-        bNrm_temp   = np.tile(bNrmNow,(ShkCount,1))
+        bNrm_temp   = np.transpose(np.tile(bNrmNow,(ShkCount,1,1)),(1,0,2))
 
         # Tile arrays of the income shocks and put them into useful shapes
-        aNrmCount         = aNrmNow.shape[1]
         PermShkVals_temp  = np.transpose(np.tile(self.PermShkValsNext,
                                                  (bNrmCount,aNrmCount,1)),
                                                                     (0,2,1))
@@ -334,9 +335,6 @@ class ConsIRASolver(ConsIndShockSolver):
         ShkPrbs_temp      = np.transpose(np.tile(self.ShkPrbsNext,
                                                  (bNrmCount,aNrmCount,1)),
                                                                     (0,2,1))
-        
-        PermShkVals_temp_b = (np.tile(self.PermShkValsNext,(bNrmCount,1))
-                                                                  ).transpose()
             
         # Make a 2D array of the interest factor at each asset gridpoint
         Rfree_Mat = self.Rsave*np.ones(aNrmNow.shape)
@@ -347,12 +345,12 @@ class ConsIRASolver(ConsIndShockSolver):
                               PermShkVals_temp)*aNrm_temp + TranShkVals_temp
                             
         # Get illiquid assets nex period
-        nNrmNext   = self.Rira/(self.PermGroFac*PermShkVals_temp_b)*bNrm_temp
+        nNrmNext   = self.Rira/(self.PermGroFac*PermShkVals_temp)*bNrm_temp
         
         # If bXtragrid = [], remove extraneous dimension from arrays
         if self.bXtragrid.size == 0:
-            for x in [aNrmNow,nNrmNext,mNrmNext,PermShkVals_temp,ShkPrbs_temp,
-                      TranShkVals_temp,Rfree_Mat]:
+            for x in [aNrmNow,bNrmNow,nNrmNext,mNrmNext,PermShkVals_temp,
+                      ShkPrbs_temp,TranShkVals_temp,Rfree_Mat]:
              x = x[0]
 
         # Store and report the results
