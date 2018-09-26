@@ -138,7 +138,7 @@ class ConsIRASolver(ConsIndShockSolver):
     '''
     def __init__(self,solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,Rsave,
                      Rira,PenIRA,DistIRA,PermGroFac,BoroCnstArt,aXtraGrid,
-                     bXtraGrid,vFuncBool,CubicBool):
+                     bXtraGrid,lXtraGrid,vFuncBool,CubicBool):
         '''
         Constructor for a new solver for problems with risky income, a liquid
         and IRA-like illiquid savings account, different interest rates on 
@@ -187,6 +187,9 @@ class ConsIRASolver(ConsIndShockSolver):
         bXtraGrid: np.array
             Array of "extra" end-of-period illiquid asset values-- assets above 
             the absolute minimum acceptable level.
+        lXtraGrid: np.array
+            Array of "extra" liquid assets just before the consumption decision
+            -- assets above the abolute minimum acceptable level.
         vFuncBool: boolean
             An indicator for whether the value function should be computed and
             included in the reported solution.
@@ -211,9 +214,9 @@ class ConsIRASolver(ConsIndShockSolver):
                          'm': 'liquid market resources at decision time',
                          'n': 'illiduid market resources at decisiont time',
                          'l': 'liquid market resource at decision time, net \
-                               of illiquid deposits',
+                               of illiquid deposits/withdrawals',
                          'c': 'consumption',
-                         'd': 'illiquid deposit'}
+                         'd': 'illiquid deposit/withdrawal'}
         
         # Initialize the solver.  Most of the steps are exactly the same as in
         # kinked-R basic case, so start with that.
@@ -228,6 +231,7 @@ class ConsIRASolver(ConsIndShockSolver):
         self.PenIRA       = PenIRA
         self.DistIRA      = DistIRA
         self.bXtraGrid    = bXtraGrid
+        self.lXtraGrid    = lXtraGrid
         
     def defBoroCnst(self,BoroCnstArt):
         '''
@@ -315,11 +319,11 @@ class ConsIRASolver(ConsIndShockSolver):
             bXtraGrid = [].
         '''
         bNrmCount   = np.asarray(self.bXtraGrid).size + 1
-        aNrmCount   = np.asarray(self.aXtraGrid).size + 1
+        aNrmCount   = np.asarray(self.aXtraGrid).size
         bNrmNow     = np.tile(np.insert(np.asarray(self.bXtraGrid),0,0.0)[:, 
-                              np.newaxis],(1,5))
-        aNrmNow     = np.tile(np.insert(np.asarray(self.aXtraGrid),0,0.0),
-                              (bNrmCount,1)) + np.transpose([self.aNrmMinb])
+                              np.newaxis],(1,aNrmCount))
+        aNrmNow     = np.tile(np.asarray(self.aXtraGrid),(bNrmCount,1)) \
+                        + np.transpose([self.aNrmMinb])
                  
         ShkCount    = self.TranShkValsNext.size
         aNrm_temp   = np.transpose(np.tile(aNrmNow,(ShkCount,1,1)),(1,0,2))
@@ -366,9 +370,10 @@ class ConsIRASolver(ConsIndShockSolver):
     def calcEndOfPrdvAndvP(self):
         '''
         Calculate end-of-period value function and marginal value function 
-        each point along the aNrmNow and bNrmNow grids. Does so by taking a 
+        for each point along the aNrmNow and bNrmNow grids. Does so by taking a 
         weighted sum of next period value function and marginal values across 
-        income shocks (in a preconstructed grid self.mNrmNext and self.nNrmNext).
+        income shocks (in a preconstructed grid self.mNrmNext and 
+        self.nNrmNext).
 
         Parameters
         ----------
@@ -377,15 +382,61 @@ class ConsIRASolver(ConsIndShockSolver):
         Returns
         -------
         EndOfPrdv  : np.array
-            
+            An array of value function levels, given end of period liquid and 
+            illiquid assets.
         
         EndOfPrdvP : np.array
             An array of marginal value with respect to liquid assets, given 
             end of period liquid and illiquid assets.
         '''
+        sum_axis = self.mNrmNext.ndim - 2
+        
+        EndOfPrdv   = self.DiscFacEff*\
+                            np.sum(self.PermShkVals_temp**
+                                   (1.0-self.CRRA)*self.PermGroFac**
+                                   (1.0-self.CRRA)*
+                                   self.vFuncNext(self.mNrmNext,self.nNrmNext)*
+                                   self.ShkPrbs_temp,axis=sum_axis)
+        
+        EndOfPrdvP  = self.DiscFacEff*\
+                            self.Rfree_Mat*\
+                            self.PermGroFac**(-self.CRRA)*\
+                            np.sum(self.PermShkVals_temp**(-self.CRRA)*\
+                                   self.vPfuncNext(self.mNrmNext,self.nNrmNext)
+                                   *self.ShkPrbs_temp,axis=sum_axis)
+        return EndOfPrdv, EndOfPrdvP
 
-        EndOfPrdvP  = self.DiscFacEff*self.Rfree_Mat*self.PermGroFac**(-self.CRRA)*np.sum(
-                      self.PermShkVals_temp**(-self.CRRA)*
-                      self.vPfuncNext(self.mNrmNext,self.nNrmNext)*self.ShkPrbs_temp,axis=0)
-        return EndOfPrdvP
+    def getPointsForPureConsumptionInterpolation(self,EndOfPrdv,
+                                                 EndOfPrdvP,aNrmNow,bNrmNow,
+                                                 lXtraGrid):
+        '''
+        Finds interpolation points (c,l,b) for the pure consumption function.
+        
+        Parameters
+        ----------
+        EndOfPrdv : np.array
+            Array of end-of-period value function levels.
+        EndOfPrdvP : np.array
+            Array of end-of-period marginal values.
+        aNrmNow : np.array
+            Array of end-of-period asset values that yield the marginal values
+            in EndOfPrdvP.
+        bNrmNow : np.array
+            Array of end-of-period illiquid asset values that yield the
+            marginal values in EndOfPrdvP.
+        lNrmNow : np.array
+            Array of 
 
+        Returns
+        -------
+        c_for_interpolation : np.array
+            Consumption points for interpolation.
+        l_for_interpolation : np.array
+            Corresponding liquid market resource points for interpolation.
+        b_for_interpolation : np.array
+            Corresponding illiquid market resource points for interpolation.
+        '''
+        cNrm_ik = self.uPinv(EndOfPrdvP)
+        lNrm_ik = cNrm_ik + aNrmNow
+        
+        
