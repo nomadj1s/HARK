@@ -365,6 +365,8 @@ class ConsIRASolver(ConsIndShockSolver):
         self.nNrmNext          = nNrmNext
         self.aNrmNow           = aNrmNow
         self.bNrmNow           = bNrmNow
+        self.aNrmCount         = aNrmCount
+        self.bNrmCount         = bNrmCount
         return aNrmNow, bNrmNow
 
     def calcEndOfPrdvAndvP(self):
@@ -411,6 +413,7 @@ class ConsIRASolver(ConsIndShockSolver):
                                                  lXtraGrid):
         '''
         Finds interpolation points (c,l,b) for the pure consumption function.
+        Uses an upper envelope algorithm (Druedahl, 2018).
         
         Parameters
         ----------
@@ -424,19 +427,76 @@ class ConsIRASolver(ConsIndShockSolver):
         bNrmNow : np.array
             Array of end-of-period illiquid asset values that yield the
             marginal values in EndOfPrdvP.
-        lNrmNow : np.array
-            Array of 
+        lXtraGrid : np.array
+            Array of "extra" liquid assets just before the consumption decision
+            -- assets above the abolute minimum acceptable level. 
 
         Returns
         -------
         c_for_interpolation : np.array
-            Consumption points for interpolation.
+            Consumption points for interpolation, of shape (ln,bn).
         l_for_interpolation : np.array
-            Corresponding liquid market resource points for interpolation.
+            Corresponding liquid market resource points for interpolation of
+            size ln.
         b_for_interpolation : np.array
-            Corresponding illiquid market resource points for interpolation.
+            Corresponding illiquid market resource points for interpolation of
+            size bn.
         '''
         cNrm_ik = self.uPinv(EndOfPrdvP)
         lNrm_ik = cNrm_ik + aNrmNow
+        
+        # Construct b-specific grids for l, including borrowing constraint
+        # Then construct one grid for l, using non-overlapping segments of 
+        # b-specific grids
+        lNrm_jk = np.tile(np.insert(np.asarray(self.lXtraGrid),0,0.0),
+                          (self.bNrmCount,1)) + np.transpose([self.aNrmMinb])
+        lNrm_jk_Xtra = [lNrm_jk[i][lNrm_jk[i] < np.min(lNrm_jk[i-1])] for i in
+                                [1,len(lNrm_jk)-1]]
+        lNrm_j = np.sort(np.hstack([lNrm_jk[0],
+                                    np.asarray(lNrm_jk_Xtra).flatten()]))
+        
+        lNrmCount = lNrm_j.size
+        
+        # Find where l_j in [l_ik , l_i+1k]
+        lNrm_j_temp = np.tile(lNrm_j[:,np.newaxis],(1,self.bNrmCount))[:,:
+                                                                         ,None]
+        lNrm_ik_temp = np.tile(lNrm_ik,(lNrmCount,1,1))
+        
+        lNrm_j_mask1 = lNrm_j_temp > lNrm_ik_temp
+        lNrm_j_mask2 = lNrm_j_mask1[:,:,:-1] & ~lNrm_j_mask1[:,:,1:]
+        
+        
+        i = [[np.flatnonzero(row) for row in mat] for mat in lNrm_j_mask2]
+        
+        # Calculate candidate optimal consumption, c_j_ik
+        cNrm_ik_temp = np.tile(cNrm_ik,(lNrmCount,1,1))
+        aNrm_ik_temp = np.tile(aNrmNow,(lNrmCount,1,1))
+        wik_temp = np.tile(EndOfPrdv,(lNrmCount,1,1))
+        
+        cNrm_j_ik = [[c[t] + (c[t+1] - c[t])/(l[t+1] - l[t])*(lj - l[t])
+                     if t.size > 0 else np.array([]) for c,l,lj,t in 
+                     zip(ci,li,lji,ti)] for ci,li,lji,ti in zip(cNrm_ik_temp,
+                                                                lNrm_ik_temp,
+                                                                lNrm_j_temp,i)]
+        
+        aNrm_j_ik = [[l - c if c.size > 0 else np.array([]) for c,l in 
+                     zip(ci,li)] for ci,li in zip(cNrm_j_ik,lNrm_j_temp)]
+        
+        w_j_ik = [[w[t] + (w[t+1] - w[t])/(a[t+1] - a[t])*(aj - a[t])
+                  if t.size > 0 else np.array([]) for w,a,aj,t in
+                  zip(wi,ai,aji,ti)] for wi,ai,aji,ti in zip(wik_temp,
+                                                             aNrm_ik_temp,
+                                                             aNrm_j_ik,i)]
+        
+        v_j_ik = self.u(np.asarray(cNrm_j_ik)) + np.asarray(w_j_ik)
+        
+        cNrm_j_k = [[c[np.argmax(v)] if c.size > 0 else 0 for c,v in 
+                    zip(ci,vi)] for ci,vi in zip(cNrm_j_ik,v_j_ik)]
+        
+        c_for_interpolation = np.array(cNrm_j_k)
+        l_for_interpolation = lNrm_j
+        b_for_interpolation = bNrmNow[:,0]
+        
+        
         
         
