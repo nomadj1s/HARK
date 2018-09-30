@@ -320,14 +320,14 @@ class ConsIRASolver(ConsIndShockSolver):
         '''
         bNrmCount   = np.asarray(self.bXtraGrid).size + 1
         aNrmCount   = np.asarray(self.aXtraGrid).size
-        bNrmNow     = np.tile(np.insert(np.asarray(self.bXtraGrid),0,0.0)[:, 
-                              np.newaxis],(1,aNrmCount))
+        bNrmNow     = np.insert(np.asarray(self.bXtraGrid),0,0.0)
         aNrmNow     = np.tile(np.asarray(self.aXtraGrid),(bNrmCount,1)) \
                         + np.transpose([self.aNrmMinb])
                  
         ShkCount    = self.TranShkValsNext.size
         aNrm_temp   = np.transpose(np.tile(aNrmNow,(ShkCount,1,1)),(1,0,2))
-        bNrm_temp   = np.transpose(np.tile(bNrmNow,(ShkCount,1,1)),(1,0,2))
+        bNrm_temp   = np.transpose(np.tile(bNrmNow[:,None],
+                                           (aNrmCount,1,ShkCount)),(1,2,0))
 
         # Tile arrays of the income shocks and put them into useful shapes
         PermShkVals_temp  = np.transpose(np.tile(self.PermShkValsNext,
@@ -345,7 +345,7 @@ class ConsIRASolver(ConsIndShockSolver):
         Rfree_Mat[aNrmNow < 0] = self.Rboro
             
         # Get liquid assets next period
-        mNrmNext   = Rfree_Mat[:, np.newaxis]/(self.PermGroFac*
+        mNrmNext   = Rfree_Mat[:, None]/(self.PermGroFac*
                               PermShkVals_temp)*aNrm_temp + TranShkVals_temp
                             
         # Get illiquid assets nex period
@@ -353,9 +353,13 @@ class ConsIRASolver(ConsIndShockSolver):
         
         # If bXtragrid = [], remove extraneous dimension from arrays
         if self.bXtragrid.size == 0:
-            for x in [aNrmNow,bNrmNow,nNrmNext,mNrmNext,PermShkVals_temp,
-                      ShkPrbs_temp,TranShkVals_temp,Rfree_Mat]:
-             x = x[0]
+            aNrmNow           = aNrmNow[0]
+            mNrmNext          = mNrmNext[0]
+            nNrmNext          = nNrmNext[0]
+            PermShkVals_temp  = PermShkVals_temp[0]
+            ShkPrbs_temp      = ShkPrbs_temp[0]
+            TranShkVals_temp  = TranShkVals_temp[0]
+            Rfree_Mat         = Rfree_Mat[0]
 
         # Store and report the results
         self.Rfree_Mat         = Rfree_Mat
@@ -458,8 +462,7 @@ class ConsIRASolver(ConsIndShockSolver):
         lNrmCount = lNrm_j.size
         
         # Find where l_j in [l_ik , l_i+1k]
-        lNrm_j_temp = np.tile(lNrm_j[:,np.newaxis],(1,self.bNrmCount))[:,:
-                                                                         ,None]
+        lNrm_j_temp = np.tile(lNrm_j[:,None],(1,self.bNrmCount))[:,:,None]
         lNrm_ik_temp = np.tile(lNrm_ik,(lNrmCount,1,1))
         
         lNrm_j_mask1 = lNrm_j_temp > lNrm_ik_temp
@@ -495,7 +498,7 @@ class ConsIRASolver(ConsIndShockSolver):
         
         c_for_interpolation = np.array(cNrm_j_k)
         l_for_interpolation = lNrm_j
-        b_for_interpolation = bNrmNow[:,0]
+        b_for_interpolation = bNrmNow
         
         
         
