@@ -148,26 +148,22 @@ class PureConsumptionFunc(HARKobject):
         bNrm : np.array
             (Normalized) grid of illiquid market resource points for 
             interpolation.
-        interpolator : function
-            A function that constructs and returns a consumption function,
-            either a 2D or 1D interpolator.
+        intercept_limit : float
+            For linear interpolation. Intercept of limiting linear function.
+        slope_limit : float
+            For linear interpolation. Slope of limiting linear function.
             
         Returns
         -------
         None
         '''
-        self.cNrm                = cNrm
-        self.lNrm                = lNrm
-        self.bNrm                = bNrm
-        self.intercept_limit     = intercept_limit
-        self.slope_limit         = slope_limit
-        self.bZero               = bNrm.size == 1
+        self.bZero               = b_list.size == 1
         
         if self.bZero: # b grid is degenerate
-            self.interpolator = LinearInterp(cNrm,lNrm,intercept_limit,
+            self.interpolator = LinearInterp(c_array,l_list,intercept_limit,
                                              slope_limit)
         else: # b grid is not degenerate
-            self.interpolator = BilinearInterp(cNrm,lNrm,bNrm)
+            self.interpolator = BilinearInterp(c_array,l_list,b_list)
 
     def __call__(self,l,b):
         '''
@@ -188,7 +184,70 @@ class PureConsumptionFunc(HARKobject):
             c(l,b).
         '''
         if self.bZero:
-            assert np.sum(b) == 0, 'Illiquid assets shoudl be zero!'
+            assert np.sum(b) == 0, 'Illiquid assets should be zero!'
+            c = self.interpolator(l)
+        else:
+            c = self.interpolator(l,b)
+            
+        return c
+    
+class ExpectedValueFunc(HARKobject):
+    '''
+    A class for representing the expected value function, given end of period
+    assets a and b.  The underlying interpolation is in the space of (a,b). If 
+    b is degenerate, uses LinearInterp. If b is not degenerate, uses 
+    BilinearInterp.
+    '''
+    distance_criteria = ['w_array','a_list','b_list']
+
+    def __init__(self,w_array,a_list,b_list):
+        '''
+        Constructor for a pure consumption function, c(l,b).
+
+        Parameters
+        ----------
+        cNrm : np.array
+            (Normalized) consumption points for interpolation. If b is
+            degenerate, this is a 1D array, otherwise it's a 2D array.
+        lNrm : np.array
+            (Normalized) grid of liquid market resource points for 
+            interpolation.
+        bNrm : np.array
+            (Normalized) grid of illiquid market resource points for 
+            interpolation.
+            
+        Returns
+        -------
+        None
+        '''
+        self.bZero               = b_list.size == 1
+        
+        if self.bZero: # b grid is degenerate
+            self.interpolator = LinearInterp(c_array,l_list,intercept_limit,
+                                             slope_limit)
+        else: # b grid is not degenerate
+            self.interpolator = BilinearInterp(c_array,l_list,b_list)
+
+    def __call__(self,l,b):
+        '''
+        Evaluate the pure consumption function at given levels of liquid 
+        market resources l and illiquid assets b.
+
+        Parameters
+        ----------
+        l : float or np.array
+            Liquid market resources (normalized by permanent income).
+        b : flot or np.array
+            Illiquid market resources (normalized by permanent income)
+
+        Returns
+        -------
+        c : float or np.array
+            Pure consumption given liquid and illiquid market resources, 
+            c(l,b).
+        '''
+        if self.bZero:
+            assert np.sum(b) == 0, 'Illiquid assets should be zero!'
             c = self.interpolator(l)
         else:
             c = self.interpolator(l,b)
@@ -607,7 +666,7 @@ class ConsIRASolver(ConsIndShockSolver):
         
         return c_for_interpolation, l_for_interpolation, b_for_interpolation
     
-    def usePointsForPureConsumptionInterpolation(self,cNrm,lNrm,bNrm):
+    def makePurecFunc(self,cNrm,lNrm,bNrm):
         '''
         Constructs a pure consumption function c(l,b), i.e. one consumption
         given l, holding b fixed this period (no deposits or withdrawals).
@@ -629,14 +688,40 @@ class ConsIRASolver(ConsIndShockSolver):
 
         Returns
         -------
-        purecFuncNow : LinearInterp or BilinearInterp
+        cFuncNowPure : LinearInterp or BilinearInterp
             The pure consumption function for this period.
         '''
         if self.bNrmCount == 1:
-            purecFuncNow = PureConsumptionFunc(cNrm,lNrm,cNrm,
+            cFuncNowPure = PureConsumptionFunc(cNrm,lNrm,cNrm,
                                                self.MPCminNow*self.hNrmNow,
                                                self.MPCminNow)
         else:
-            purecFuncNow = PureConsumptionFunc(cNrm,lNrm,bNrm)
+            cFuncNowPure = PureConsumptionFunc(cNrm,lNrm,bNrm)
         
-        return purecFuncNow
+        return cFuncNowPure
+    
+    def makeEndOfPrdvFunc(self,EndOfPrdvP):
+        '''
+        Construct the end-of-period value function for this period, storing it
+        as an attribute of self for use by other methods.
+
+        Parameters
+        ----------
+        EndOfPrdvP : np.array
+            Array of end-of-period marginal value of assets corresponding to the
+            asset values in self.aNrmNow.
+
+        Returns
+        -------
+        none
+        '''
+        VLvlNext            = (self.PermShkVals_temp**(1.0-self.CRRA)*\
+                               self.PermGroFac**(1.0-self.CRRA))*self.vFuncNext(self.mNrmNext)
+        EndOfPrdv           = self.DiscFacEff*np.sum(VLvlNext*self.ShkPrbs_temp,axis=0)
+        EndOfPrdvNvrs       = self.uinv(EndOfPrdv) # value transformed through inverse utility
+        EndOfPrdvNvrsP      = EndOfPrdvP*self.uinvP(EndOfPrdv)
+        EndOfPrdvNvrs       = np.insert(EndOfPrdvNvrs,0,0.0)
+        EndOfPrdvNvrsP      = np.insert(EndOfPrdvNvrsP,0,EndOfPrdvNvrsP[0]) # This is a very good approximation, vNvrsPP = 0 at the asset minimum
+        aNrm_temp           = np.insert(self.aNrmNow,0,self.BoroCnstNat)
+        EndOfPrdvNvrsFunc   = CubicInterp(aNrm_temp,EndOfPrdvNvrs,EndOfPrdvNvrsP)
+        self.EndOfPrdvFunc  = ValueFunc(EndOfPrdvNvrsFunc,self.CRRA) 
