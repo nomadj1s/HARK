@@ -139,13 +139,13 @@ class PureConsumptionFunc(HARKobject):
 
         Parameters
         ----------
-        cNrm : np.array
+        c_array : np.array
             (Normalized) consumption points for interpolation. If b is
             degenerate, this is a 1D array, otherwise it's a 2D array.
-        lNrm : np.array
+        l_list : np.array
             (Normalized) grid of liquid market resource points for 
             interpolation.
-        bNrm : np.array
+        b_list : np.array
             (Normalized) grid of illiquid market resource points for 
             interpolation.
         intercept_limit : float
@@ -157,7 +157,7 @@ class PureConsumptionFunc(HARKobject):
         -------
         None
         '''
-        self.bZero               = b_list.size == 1
+        self.bZero = b_list.size == 1
         
         if self.bZero: # b grid is degenerate
             self.interpolator = LinearInterp(c_array,l_list,intercept_limit,
@@ -193,64 +193,69 @@ class PureConsumptionFunc(HARKobject):
     
 class ExpectedValueFunc(HARKobject):
     '''
-    A class for representing the expected value function, given end of period
-    assets a and b.  The underlying interpolation is in the space of (a,b). If 
-    b is degenerate, uses LinearInterp. If b is not degenerate, uses 
+    A class for representing the next period value function, given end of 
+    period assets a and b.  The underlying interpolation is in the space of 
+    (a,b). If b is degenerate, uses LinearInterp. If b is not degenerate, uses 
     BilinearInterp.
     '''
     distance_criteria = ['w_array','a_list','b_list']
 
-    def __init__(self,w_array,a_list,b_list):
+    def __init__(self,w_array,a_list,b_list,intercept_limit=None,
+                 slope_limit=None):
         '''
-        Constructor for a pure consumption function, c(l,b).
+        Constructor for a end-of-period value function, w(a,b).
 
         Parameters
         ----------
-        cNrm : np.array
-            (Normalized) consumption points for interpolation. If b is
+        w_array : np.array
+            (Normalized) value points for interpolation. If b is
             degenerate, this is a 1D array, otherwise it's a 2D array.
-        lNrm : np.array
+        a_list : np.array
             (Normalized) grid of liquid market resource points for 
             interpolation.
-        bNrm : np.array
+        b_list : np.array
             (Normalized) grid of illiquid market resource points for 
             interpolation.
+        intercept_limit : float
+            For linear interpolation. Intercept of limiting linear function.
+        slope_limit : float
+            For linear interpolation. Slope of limiting linear function.
             
         Returns
         -------
         None
         '''
-        self.bZero               = b_list.size == 1
+        self.bZero = b_list.size == 1
         
         if self.bZero: # b grid is degenerate
-            self.interpolator = LinearInterp(c_array,l_list,intercept_limit,
+            self.interpolator = LinearInterp(w_array,a_list,intercept_limit,
                                              slope_limit)
         else: # b grid is not degenerate
-            self.interpolator = BilinearInterp(c_array,l_list,b_list)
+            self.interpolator = BilinearInterp(w_array,a_list,b_list)
 
-    def __call__(self,l,b):
+    def __call__(self,a,b):
         '''
-        Evaluate the pure consumption function at given levels of liquid 
-        market resources l and illiquid assets b.
+        Evaluate the end-of-period value function at given levels of liquid 
+        market resources a and illiquid assets b.
 
         Parameters
         ----------
-        l : float or np.array
+        a : float or np.array
             Liquid market resources (normalized by permanent income).
         b : flot or np.array
             Illiquid market resources (normalized by permanent income)
 
         Returns
         -------
-        c : float or np.array
+        w : float or np.array
             Pure consumption given liquid and illiquid market resources, 
             c(l,b).
         '''
         if self.bZero:
             assert np.sum(b) == 0, 'Illiquid assets should be zero!'
-            c = self.interpolator(l)
+            c = self.interpolator(a)
         else:
-            c = self.interpolator(l,b)
+            c = self.interpolator(a,b)
             
         return c
         
@@ -700,21 +705,26 @@ class ConsIRASolver(ConsIndShockSolver):
         
         return cFuncNowPure
     
-    def makeEndOfPrdvFunc(self,EndOfPrdvP):
+    def makeEndOfPrdvFunc(self,EndOfPrdv):
         '''
         Construct the end-of-period value function for this period, storing it
         as an attribute of self for use by other methods.
 
         Parameters
         ----------
-        EndOfPrdvP : np.array
-            Array of end-of-period marginal value of assets corresponding to the
-            asset values in self.aNrmNow.
+        EndOfPrdv : np.array
+            Array of end-of-period value of assets corresponding to the
+            asset values in self.aNrmNow and self.bNrmNow.
 
         Returns
         -------
         none
         '''
+        insert_axis         = self.aNrmNow.ndim - 1
+        
+        aNrm_temp           = np.insert(self.aNrmNow,0,self.aNrmMinb,axis=insert_axis)
+        EndOfPrdv_temp      = np.insert(EndOfPrdv,0,0.0,axis=insert_axis)
+        
         VLvlNext            = (self.PermShkVals_temp**(1.0-self.CRRA)*\
                                self.PermGroFac**(1.0-self.CRRA))*self.vFuncNext(self.mNrmNext)
         EndOfPrdv           = self.DiscFacEff*np.sum(VLvlNext*self.ShkPrbs_temp,axis=0)
