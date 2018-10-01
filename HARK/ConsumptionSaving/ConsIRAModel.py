@@ -720,9 +720,18 @@ class ConsIRASolver(ConsIndShockSolver):
         -------
         none
         '''
-        insert_axis         = self.aNrmNow.ndim - 1
+        # Construct one grid for a, using non-overlapping segments of 
+        # b-specific grids
+        if self.bNrmCount > 1:
+            aNrmNow_Xtra = [self.aNrmNow[i][self.aNrmNow[i] < 
+                                         np.min(self.aNrmNow[i-1])] 
+                                    for i in [1,len(self.aNrmNow)-1]]
+            aNrmNow_temp = np.sort(np.append([self.aNrmNow[0],
+                                    np.hstack(aNrmNow_Xtra)]))
+        else:
+            aNrmNow_temp = np.insert(self.aNrmNow,0,self.aNrmMinb)
         
-        aNrm_temp           = np.insert(self.aNrmNow,0,self.aNrmMinb,axis=insert_axis)
+        insert_axis         = EndOfPrdv.ndim - 1
         EndOfPrdv_temp      = np.insert(EndOfPrdv,0,0.0,axis=insert_axis)
         
         VLvlNext            = (self.PermShkVals_temp**(1.0-self.CRRA)*\
