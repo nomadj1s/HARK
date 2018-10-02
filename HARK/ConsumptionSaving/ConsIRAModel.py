@@ -628,6 +628,9 @@ class ConsIRASolver(ConsIndShockSolver):
         lNrm_j_temp = np.tile(lNrm_j[:,None],(1,self.bNrmCount))[:,:,None]
         lNrm_ik_temp = np.tile(lNrm_ik,(lNrmCount,1,1))
         
+        #lNrm_ik_temp = np.transpose(np.tile(lNrm_ik,(lNrmCount,1,1)),(1,0,2))
+        
+        
         lNrm_j_mask = (lNrm_j_temp > lNrm_ik_temp[:,:,:-1]) \
                         & ~(lNrm_j_temp > lNrm_ik_temp[:,:,1:])
         
