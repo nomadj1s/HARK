@@ -18,6 +18,7 @@ from builtins import object
 from copy import copy, deepcopy
 import numpy as np
 from scipy.optimize import minimize_scalar
+from scipy.interpolate import interp2d
 
 import sys 
 import os
@@ -26,7 +27,7 @@ sys.path.insert(0, os.path.abspath('./'))
 
 from core import AgentType, NullFunc, HARKobject
 from interpolation import CubicInterp, LowerEnvelope, LinearInterp,\
-                           BilinearInterp
+                           BilinearInterp, ConstantFunction
 from ConsIndShockModel import ConsumerSolution, ConsIndShockSolver
 from simulation import drawDiscrete, drawBernoulli, drawLognormal, drawUniform
 from utilities import approxMeanOneLognormal, addDiscreteOutcomeConstantMean,\
@@ -128,26 +129,30 @@ class PureConsumptionFunc(HARKobject):
     '''
     A class for representing a pure consumption function.  The underlying 
     interpolation is in the space of (l,b). If b is degenerate, uses
-    LinearInterp. If b is not degenerate, uses BilinearInterp.
+    LinearInterp. If b is not degenerate, uses BilinearInterp. When l <
+    l_min(b), returns c = 0.
     '''
     distance_criteria = ['c_array','l_list','b_list']
 
-    def __init__(self,c_array,l_list,b_list,intercept_limit=None,
+    def __init__(self,c_list,l_list,b_list,lmin,intercept_limit=None,
                  slope_limit=None):
         '''
-        Constructor for a pure consumption function, c(l,b).
+        Constructor for a pure consumption function, c(l,b). Uses 1D
+        interpolation when b is degenerate and 2D when b is not degenerate.
 
         Parameters
         ----------
-        c_array : np.array
-            (Normalized) consumption points for interpolation. If b is
-            degenerate, this is a 1D array, otherwise it's a 2D array.
+        c_list : np.array
+            (Normalized) consumption points for interpolation.
         l_list : np.array
             (Normalized) grid of liquid market resource points for 
             interpolation.
         b_list : np.array
             (Normalized) grid of illiquid market resource points for 
             interpolation.
+        lmin : LinearInterp or ConstantFunction
+            A function that returns the minimum level of l allowable, given b.
+            For l < lmin(b), return c = 0.
         intercept_limit : float
             For linear interpolation. Intercept of limiting linear function.
         slope_limit : float
@@ -157,13 +162,14 @@ class PureConsumptionFunc(HARKobject):
         -------
         None
         '''
-        self.bZero = b_list.size == 1
+        self.bZero = np.sum(b_list) == 0
+        self.lmin  = lmin
         
         if self.bZero: # b grid is degenerate
-            self.interpolator = LinearInterp(c_array,l_list,intercept_limit,
+            self.interpolator = LinearInterp(c_list,l_list,intercept_limit,
                                              slope_limit)
         else: # b grid is not degenerate
-            self.interpolator = BilinearInterp(c_array,l_list,b_list)
+            self.interpolator = interp2d(l_list,b_list,c_list,kind='linear')
 
     def __call__(self,l,b):
         '''
@@ -183,11 +189,14 @@ class PureConsumptionFunc(HARKobject):
             Pure consumption given liquid and illiquid market resources, 
             c(l,b).
         '''
-        if self.bZero:
-            assert np.sum(b) == 0, 'Illiquid assets should be zero!'
-            c = self.interpolator(l)
+        if l <= self.lmin(b):
+            c = 0
         else:
-            c = self.interpolator(l,b)
+            if self.bZero:
+                assert np.sum(b) == 0, 'Illiquid assets should be zero!'
+                c = self.interpolator(l)
+            else:
+                c = self.interpolator(l,b)
             
         return c
     
@@ -435,6 +444,13 @@ class ConsIRASolver(ConsIndShockSolver):
             self.MPCmaxEff = 1.0 # If actually constrained, MPC near limit is 1
         else:
             self.MPCmaxEff = self.MPCmaxNow
+        
+        # Calculates natural borrowing constraint
+        if self.aNrmMinb.size == 1:
+            self.BoroCnstFunc = ConstantFunction(self.aNrmMinb)
+        else:
+            self.BoroCnstFunc = LinearInterp(np.append([0],np.asarray(
+                        self.bXtraGrid)),self.aNrmMinb)
     
     def prepareToCalcEndOfPrdvAndvP(self):
         '''
@@ -597,40 +613,31 @@ class ConsIRASolver(ConsIndShockSolver):
         Returns
         -------
         c_for_interpolation : np.array
-            Consumption points for interpolation, of shape (ln,bn).
+            Consumption points for interpolation. A flattened array of size 
+            (lXtraGrid + 1) * bNrmNow.size.
         l_for_interpolation : np.array
             Corresponding liquid market resource points for interpolation of
-            size ln.
+            size (lXtraGrid + 1) * bNrmNow.size.
         b_for_interpolation : np.array
             Corresponding illiquid market resource points for interpolation of
-            size bn.
+            size (lXtraGrid + 1) * bNrmNow.size.
         '''
         cNrm_ik = self.uPinv(EndOfPrdvP)
         lNrm_ik = cNrm_ik + aNrmNow
         
         # Construct b-specific grids for l, including borrowing constraint
-        # Then construct one grid for l, using non-overlapping segments of 
-        # b-specific grids
-        if self.bNrmCount > 1:
-            lNrm_jk = np.tile(np.insert(np.asarray(self.lXtraGrid),0,0.0),
+        lNrm_j = np.tile(np.insert(np.asarray(self.lXtraGrid),0,0.0),
                           (self.bNrmCount,1)) + np.transpose([self.aNrmMinb])
-            lNrm_jk_Xtra = [lNrm_jk[i][lNrm_jk[i] < np.min(lNrm_jk[i-1])] for 
-                                    i in [1,len(lNrm_jk)-1]]
-            lNrm_j = np.sort(np.append([lNrm_jk[0],
-                                    np.hstack(lNrm_jk_Xtra)]))
-        else:
-            lNrm_j = np.insert(np.asarray(self.lXtraGrid),0,0.0) \
-                        + self.aNrmMinb
         
-        lNrmCount = lNrm_j.size
+        lNrmCount = np.asarray(self.lXtraGrid).size + 1
+        
+        # Construct b_k x l_j specific grids for l,c,a, and w
+        lNrm_ik_temp,cNrm_ik_temp,aNrm_ik_temp,w_ik_temp = \
+            [np.transpose(np.tile(x,(lNrmCount,1,1)),(1,0,2)) for x in 
+             [lNrm_ik,cNrm_ik,aNrmNow,EndOfPrdv]]
         
         # Find where l_j in [l_ik , l_i+1k]
-        lNrm_j_temp = np.tile(lNrm_j[:,None],(1,self.bNrmCount))[:,:,None]
-        lNrm_ik_temp = np.tile(lNrm_ik,(lNrmCount,1,1))
-        
-        #lNrm_ik_temp = np.transpose(np.tile(lNrm_ik,(lNrmCount,1,1)),(1,0,2))
-        
-        
+        lNrm_j_temp = lNrm_j[:,:,None]
         lNrm_j_mask = (lNrm_j_temp > lNrm_ik_temp[:,:,:-1]) \
                         & ~(lNrm_j_temp > lNrm_ik_temp[:,:,1:])
         
@@ -640,10 +647,6 @@ class ConsIRASolver(ConsIndShockSolver):
         # Calculate candidate optimal consumption, c_j_ik
         # Calculate associated assets, a_j_ik, and next period value, w_j_ik
         # Find consumption that maximizes utility
-        cNrm_ik_temp = np.tile(cNrm_ik,(lNrmCount,1,1))
-        aNrm_ik_temp = np.tile(aNrmNow,(lNrmCount,1,1))
-        w_ik_temp = np.tile(EndOfPrdv,(lNrmCount,1,1))
-        
         cNrm_j_ik = [[c[t] + (c[t+1] - c[t])/(l[t+1] - l[t])*(lj - l[t])
                      if t.size > 0 else np.array([]) for c,l,lj,t in 
                      zip(ci,li,lji,ti)] for ci,li,lji,ti in zip(cNrm_ik_temp,
@@ -663,14 +666,10 @@ class ConsIRASolver(ConsIndShockSolver):
         
         cNrm_j_k = [[c[np.argmax(v)] if c.size > 0 else 0 for c,v in 
                     zip(ci,vi)] for ci,vi in zip(cNrm_j_ik,v_j_ik)]
-        
-        if self.bNrmCount > 1:
-            c_for_interpolation = np.array(cNrm_j_k)
-        else:
-            c_for_interpolation = np.array(cNrm_j_k).flatten()
             
-        l_for_interpolation = lNrm_j
-        b_for_interpolation = bNrmNow
+        c_for_interpolation = np.array(cNrm_j_k).flatten()
+        l_for_interpolation = lNrm_j.flatten()
+        b_for_interpolation = np.repeat(bNrmNow,self.aNrmCount)
         
         return c_for_interpolation, l_for_interpolation, b_for_interpolation
     
@@ -682,17 +681,13 @@ class ConsIRASolver(ConsIndShockSolver):
         Parameters
         ----------
         cNrm : np.array
-            (Normalized) consumption points for interpolation. If b is
-            degenerate, this is a 1D array, otherwise it's a 2D array.
+            (Normalized) consumption points for interpolation.
         lNrm : np.array
             (Normalized) grid of liquid market resource points for 
             interpolation.
         bNrm : np.array
             (Normalized) grid of illiquid market resource points for 
             interpolation.
-        interpolator : function
-            A function that constructs and returns a consumption function,
-            either a 2D or 1D interpolator.
 
         Returns
         -------
@@ -701,10 +696,12 @@ class ConsIRASolver(ConsIndShockSolver):
         '''
         if self.bNrmCount == 1:
             cFuncNowPure = PureConsumptionFunc(cNrm,lNrm,cNrm,
+                                               self.BoroCnstFunc,
                                                self.MPCminNow*self.hNrmNow,
                                                self.MPCminNow)
         else:
-            cFuncNowPure = PureConsumptionFunc(cNrm,lNrm,bNrm)
+            cFuncNowPure = PureConsumptionFunc(cNrm,lNrm,bNrm,
+                                               self.BoroCnstFunc)
         
         return cFuncNowPure
     
