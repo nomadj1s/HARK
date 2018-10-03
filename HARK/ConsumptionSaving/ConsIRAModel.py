@@ -17,7 +17,7 @@ from builtins import range
 from builtins import object
 from copy import copy, deepcopy
 import numpy as np
-from scipy.optimize import minimize_scalar
+from scipy.optimize import basinhopping
 from scipy.interpolate import interp2d
 
 import sys 
@@ -729,7 +729,37 @@ class ConsIRASolver(ConsIndShockSolver):
         
         self.EndOfPrdvFunc = EndOfPeriodValueFunc(aNrm,bNrm,w_ab)
         
-    def makeIRAdFunc(self,cFuncNowPure,mNrm,nNrm,dmax):
+    def makedvFunc(self,dNrm,mNrm,nNrm):
+        '''
+        Constructs a beginning-period value function, given the IRA deposit (d)
+        , beginning-of-period liquid resources and beginning-of-period illiquid
+        assets.
+        
+        Parameters
+        ----------
+        dNrm : float
+            (Normalized) IRA deposit/withdrawal this period.
+        mNrm : float
+            (Normalized) liquid assets at the beginning of this period.
+        nNrm : float
+            (Normalized) illiquid assets at the beginning of this period.
+        
+        Returns
+        -------
+        v : float
+            Value function given d, m, and n.
+        '''
+        bNrm = nNrm + dNrm
+        lNrm = mNrm + (1 - self.PenIRA*(dNrm < 0))*dNrm
+        cNrm = self.cFuncNowPure(lNrm,bNrm)
+        aNrm = lNrm - cNrm
+        
+        v = self.u(cNrm,self.CRRA) + self.EndOfPrdvFunc(aNrm,bNrm)
+        
+        return v
+        
+        
+    def makeIRAdFunc(self):
         '''
         Makes the optimal IRA deposit/withdrawal function for this period.
 
@@ -743,4 +773,17 @@ class ConsIRASolver(ConsIndShockSolver):
         -------
         none
         '''
+        mNrm = self.aNrmNow.flatten()
+        nNrm = np.repeat(self.bNrmNow,self.aNrmCount)        
+           
+        dNrm = [basinhopping(self.makedvFunc,0,
+                                minimizer_kwargs={"bounds":((0,self.MaxIRA),),
+                                                  "args":(m,n)})
+                                                     for m,n in zip(mNrm,nNrm)]
+        
+        dNrm = np.array(dNrm)
+        lNrm = mNrm + (1 - self.PenIRA*(dNrm < 0))*dNrm
+        bNrm = nNrm + dNrm
+        cNrm = self.cFuncNowPure(lNrm,bNrm)
+            
         
