@@ -785,7 +785,7 @@ class ConsIRASolver(ConsIndShockSolver):
         
         self.EndOfPrdvFunc = EndOfPeriodValueFunc(aNrm,bNrm,w_ab)
         
-    def makedvFunc(self,dNrm,mNrm,nNrm):
+    def makevOfdFunc(self,dNrm,mNrm,nNrm):
         '''
         Constructs a beginning-period value function, given the IRA deposit (d)
         , beginning-of-period liquid resources and beginning-of-period illiquid
