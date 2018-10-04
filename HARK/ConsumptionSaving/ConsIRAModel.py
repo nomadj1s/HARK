@@ -134,7 +134,7 @@ class PureConsumptionFunc(HARKobject):
     '''
     distance_criteria = ['l_list','b_list','c_list']
 
-    def __init__(self,l_list,b_list,c_list,lmin,intercept_limit=None,
+    def __init__(self,l_list,b_list,c_list,lMin,intercept_limit=None,
                  slope_limit=None):
         '''
         Constructor for a pure consumption function, c(l,b). Uses 1D
@@ -163,7 +163,7 @@ class PureConsumptionFunc(HARKobject):
         None
         '''
         self.bZero = np.sum(b_list) == 0
-        self.lmin  = lmin
+        self.lMin  = lMin
         
         if self.bZero: # b grid is degenerate
             self.interpolator = LinearInterp(l_list,c_list,intercept_limit,
@@ -191,11 +191,10 @@ class PureConsumptionFunc(HARKobject):
         '''
         assert b.all() >= 0, 'b should be non-negative'
         
-        if l <= self.lmin(b):
+        if l <= self.lMin(b):
             c = 0
         else:
             if self.bZero:
-                assert np.sum(b) == 0, 'Illiquid assets should be zero!'
                 c = self.interpolator(l)
             else:
                 c = self.interpolator(l,b)
@@ -270,6 +269,71 @@ class EndOfPeriodValueFunc(HARKobject):
             w = self.interpolator(a,b)
             
         return w
+    
+class DepositFunc(HARKobject):
+    '''
+    A class for representing a deposit/withdrawal function.  The underlying 
+    interpolation is in the space of (m,n). If n is degenerate, uses
+    LinearInterp. If n is not degenerate, uses interp2d.
+    '''
+    distance_criteria = ['m_list','n_list','d_list']
+
+    def __init__(self,m_list,n_list,d_list):
+        '''
+        Constructor for a deposit/withdrawal function, d(m,n). Uses 1D
+        interpolation when n is degenerate and 2D when n is not degenerate.
+
+        Parameters
+        ----------
+        m_list : np.array
+            (Normalized) grid of liquid market resource points for 
+            interpolation.
+        n_list : np.array
+            (Normalized) grid of illiquid market resource points for 
+            interpolation.
+        d_list : np.array
+            (Normalized) deposit/withdrawal points for interpolation.
+            
+        Returns
+        -------
+        None
+        '''
+        self.nZero = np.sum(n_list) == 0
+        
+        if self.nZero: # b grid is degenerate
+            self.interpolator = ConstantFunction(0)
+        else: # b grid is not degenerate
+            self.interpolator = interp2d(l_list,b_list,c_list,kind='linear')
+
+    def __call__(self,l,b):
+        '''
+        Evaluate the pure consumption function at given levels of liquid 
+        market resources l and illiquid assets b.
+
+        Parameters
+        ----------
+        l : float or np.array
+            Liquid market resources (normalized by permanent income).
+        b : flot or np.array
+            Illiquid market resources (normalized by permanent income)
+
+        Returns
+        -------
+        c : float or np.array
+            Pure consumption given liquid and illiquid market resources, 
+            c(l,b).
+        '''
+        assert b.all() >= 0, 'b should be non-negative'
+        
+        if l <= self.lmin(b):
+            c = 0
+        else:
+            if self.bZero:
+                c = self.interpolator(l)
+            else:
+                c = self.interpolator(l,b)
+            
+        return c
         
 class ConsIRASolver(ConsIndShockSolver):
     '''
@@ -759,9 +823,10 @@ class ConsIRASolver(ConsIndShockSolver):
         return v
         
         
-    def makeIRAdFunc(self):
+    def makecAnddFunc(self):
         '''
-        Makes the optimal IRA deposit/withdrawal function for this period.
+        Makes the optimal IRA deposit/withdrawal function for this period and
+        optimal consumption function for this period.
 
         Parameters
         ----------
@@ -785,5 +850,7 @@ class ConsIRASolver(ConsIndShockSolver):
         lNrm = mNrm + (1 - self.PenIRA*(dNrm < 0))*dNrm
         bNrm = nNrm + dNrm
         cNrm = self.cFuncNowPure(lNrm,bNrm)
+        
+        
             
         
