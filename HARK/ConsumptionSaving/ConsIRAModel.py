@@ -162,7 +162,7 @@ class PureConsumptionFunc(HARKobject):
         -------
         None
         '''
-        self.bZero = np.sum(b_list) == 0
+        self.bZero = np.array(b_list).all() == 0
         self.lMin  = lMin
         
         if self.bZero: # b grid is degenerate
@@ -234,7 +234,7 @@ class EndOfPeriodValueFunc(HARKobject):
         -------
         None
         '''
-        self.bZero = np.sum(b_list) == 0
+        self.bZero = np.array(b_list).all() == 0
         
         if self.bZero: # b grid is degenerate
             self.interpolator = LinearInterp(a_list,w_list,intercept_limit,
@@ -278,7 +278,7 @@ class DepositFunc(HARKobject):
     '''
     distance_criteria = ['m_list','n_list','d_list']
 
-    def __init__(self,m_list,n_list,d_list):
+    def __init__(self,m_list,n_list,d_list,dMax):
         '''
         Constructor for a deposit/withdrawal function, d(m,n). Uses 1D
         interpolation when n is degenerate and 2D when n is not degenerate.
@@ -298,42 +298,40 @@ class DepositFunc(HARKobject):
         -------
         None
         '''
-        self.nZero = np.sum(n_list) == 0
+        self.nZero = np.array(n_list).all() == 0
+        self.dMax = dMax
         
-        if self.nZero: # b grid is degenerate
-            self.interpolator = ConstantFunction(0)
-        else: # b grid is not degenerate
-            self.interpolator = interp2d(l_list,b_list,c_list,kind='linear')
+        if not self.nZero: # b grid is not degenerate
+            self.interpolator = interp2d(m_list,n_list,d_list,kind='linear')
 
-    def __call__(self,l,b):
+    def __call__(self,m,n):
         '''
-        Evaluate the pure consumption function at given levels of liquid 
-        market resources l and illiquid assets b.
+        Evaluate the deposit/withdrawal function at given levels of liquid 
+        market resources m and illiquid assets n.
 
         Parameters
         ----------
-        l : float or np.array
+        m : float or np.array
             Liquid market resources (normalized by permanent income).
-        b : flot or np.array
+        n : flot or np.array
             Illiquid market resources (normalized by permanent income)
 
         Returns
         -------
-        c : float or np.array
-            Pure consumption given liquid and illiquid market resources, 
-            c(l,b).
+        d : float or np.array
+            Deposit/withdrawal given liquid and illiquid market resources, 
+            d(m,n).
         '''
-        assert b.all() >= 0, 'b should be non-negative'
+        assert n.all() >= 0, 'n should be non-negative'
         
-        if l <= self.lmin(b):
-            c = 0
+        if self.nZero:
+            d = 0
         else:
-            if self.bZero:
-                c = self.interpolator(l)
-            else:
-                c = self.interpolator(l,b)
+            d = self.interpolator(m,n)
+            d[d < -n] = -n
+            d[d > self.dMax] = self.dMax
             
-        return c
+        return d
         
 class ConsIRASolver(ConsIndShockSolver):
     '''
@@ -761,15 +759,9 @@ class ConsIRASolver(ConsIndShockSolver):
         -------
         none
         '''
-        if self.bNrmCount == 1:
-            cFuncNowPure = PureConsumptionFunc(lNrm,bNrm,cNrm,
-                                               self.BoroCnstFunc,
-                                               self.MPCminNow*self.hNrmNow,
-                                               self.MPCminNow)
-        else:
-            cFuncNowPure = PureConsumptionFunc(lNrm,bNrm,cNrm,
-                                               self.BoroCnstFunc)
-        
+        cFuncNowPure = PureConsumptionFunc(lNrm,bNrm,cNrm,self.BoroCnstFunc,
+                                           self.MPCminNow*self.hNrmNow,
+                                           self.MPCminNow)
         self.cFuncNowPure = cFuncNowPure
     
     def makeEndOfPrdvFunc(self,EndOfPrdv):
@@ -838,18 +830,31 @@ class ConsIRASolver(ConsIndShockSolver):
         -------
         none
         '''
-        mNrm = self.aNrmNow.flatten()
-        nNrm = np.repeat(self.bNrmNow,self.aNrmCount)        
+        if self.bNrmCount == 1:
+            self.dFuncNow = ConstantFunction(0)
+            self.cFuncNow = self.cFuncNowPure
+        else:
+            mNrm = self.aNrmNow.flatten()
+            nNrm = np.repeat(self.bNrmNow,self.aNrmCount)        
            
-        dNrm = [basinhopping(self.makedvFunc,0,
-                                minimizer_kwargs={"bounds":((0,self.MaxIRA),),
+            dNrm = [basinhopping(self.makedvFunc,0,
+                                minimizer_kwargs={"bounds":((-n,self.MaxIRA),),
                                                   "args":(m,n)})
                                                      for m,n in zip(mNrm,nNrm)]
         
-        dNrm = np.array(dNrm)
-        lNrm = mNrm + (1 - self.PenIRA*(dNrm < 0))*dNrm
-        bNrm = nNrm + dNrm
-        cNrm = self.cFuncNowPure(lNrm,bNrm)
+            dNrm = np.array(dNrm)
+            lNrm = mNrm + (1 - self.PenIRA*(dNrm < 0))*dNrm
+            bNrm = nNrm + dNrm
+            cNrm = self.cFuncNowPure(lNrm,bNrm)
+            
+            self.dFuncNow = DepositFunc(mNrm,nNrm,dNrm,self.MaxIRA)
+            self.cFuncNow = PureConsumptionFunc(mNrm,nNrm,cNrm,
+                                                self.BoroCnstFunc,
+                                                self.MPCminNow*
+                                                self.hNrmNow,
+                                                self.MPCminNow)
+    
+
         
         
             
