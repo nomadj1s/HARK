@@ -850,8 +850,7 @@ class ConsIRASolver(ConsIndShockSolver):
             self.dFuncNow = DepositFunc(mNrm,nNrm,dNrm,self.MaxIRA)
             self.cFuncNow = PureConsumptionFunc(mNrm,nNrm,cNrm,
                                                 self.BoroCnstFunc,
-                                                self.MPCminNow*
-                                                self.hNrmNow,
+                                                self.MPCminNow*self.hNrmNow,
                                                 self.MPCminNow)
     
 
