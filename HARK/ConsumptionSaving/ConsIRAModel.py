@@ -448,7 +448,7 @@ class ConsIRASolver(ConsIndShockSolver):
         -------
         None
         '''
-        assert Rboro>=Rira>=Rsave, 'Interest factors must satisfy \
+        assert Rboro >= Rira >= Rsave, 'Interest factors must satisfy \
                                        Rboro>=Rira>=Rsave'
         assert vFuncBool == True, 'Must calculate value function \
                                       vFuncBool == True'
@@ -614,7 +614,7 @@ class ConsIRASolver(ConsIndShockSolver):
         nNrmNext   = self.Rira/(self.PermGroFac*PermShkVals_temp)*bNrm_temp
         
         # If bXtragrid = [], remove unnecessary dimension from arrays
-        if self.bXtragrid.size == 0:
+        if self.bXtraGrid.size == 0:
             aNrmNow           = aNrmNow[0]
             mNrmNext          = mNrmNext[0]
             nNrmNext          = nNrmNext[0]
@@ -769,7 +769,7 @@ class ConsIRASolver(ConsIndShockSolver):
             
         c_for_interpolation = np.array(cNrm_j_k).flatten()
         l_for_interpolation = lNrm_j.flatten()
-        b_for_interpolation = np.repeat(bNrmNow,self.lNrmCount)
+        b_for_interpolation = np.repeat(bNrmNow,lNrmCount)
         
         return c_for_interpolation, l_for_interpolation, b_for_interpolation
     
