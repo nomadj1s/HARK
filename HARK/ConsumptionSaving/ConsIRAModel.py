@@ -162,8 +162,9 @@ class PureConsumptionFunc(HARKobject):
         -------
         None
         '''
+        assert np.array(b_list).all() >= 0, 'b should be non-negative'
         self.bZero = np.array(b_list).all() == 0
-        self.lMin  = lMin
+        self.lMin  = deepcopy(lMin)
         
         if self.bZero: # b grid is degenerate
             self.interpolator = LinearInterp(l_list,c_list,intercept_limit,
@@ -234,6 +235,7 @@ class EndOfPeriodValueFunc(HARKobject):
         -------
         None
         '''
+        assert np.array(b_list).all() >= 0, 'b should be non-negative'
         self.bZero = np.array(b_list).all() == 0
         
         if self.bZero: # b grid is degenerate
@@ -269,19 +271,31 @@ class EndOfPeriodValueFunc(HARKobject):
             w = self.interpolator(a,b)
             
         return w
-    
-class DepositFunc(HARKobject):
+            
+class ConsIRAPolicyFunc(HARKobject):
     '''
-    A class for representing a deposit/withdrawal function.  The underlying 
-    interpolation is in the space of (m,n). If n is degenerate, uses
-    LinearInterp. If n is not degenerate, uses interp2d.
+    Class for representing the policy function in the consumption opt-
+    imal consumption and medical care for given market resources, permanent income,
+    and medical need shock.  Always obeys Con + MedPrice*Med = optimal spending.
     '''
-    distance_criteria = ['m_list','n_list','d_list']
+    '''
+    A class for representing the optimal consumtion and deposit/withdrawal 
+    functions.  The underlying interpolation is in the space of (m,n). If n is 
+    degenerate, uses LinearInterp for consumption. If n is not degenerate, uses 
+    interp2d for consumption and deposit/withdrawal. Always obeys:
+        
+        l = m + (1-t(d))*d
+        b = n + d
+        c = c(l,b)
+    '''
+    distance_criteria = ['m_list','n_list','d_list','cFuncPure']
 
-    def __init__(self,m_list,n_list,d_list,dMax):
+    def __init__(self,m_list,n_list,d_list,MaxIRA,PenIRA,cFuncPure,
+                 output='both'):
         '''
-        Constructor for a deposit/withdrawal function, d(m,n). Uses 1D
-        interpolation when n is degenerate and 2D when n is not degenerate.
+        Constructor for consumption and deposit/withdrawal functions, c(m,n)
+        and d(m,n). Uses 1D for c(m,n) interpolation when n is degenerate and 
+        2D when n is not degenerate.
 
         Parameters
         ----------
@@ -293,21 +307,30 @@ class DepositFunc(HARKobject):
             interpolation.
         d_list : np.array
             (Normalized) deposit/withdrawal points for interpolation.
+        MaxIRA : float
+            (Nomralized) maximum allowable IRA deposit, d <= MaxIRA.
+        cFucnPure : float
+            (Nomralized) consumption as a function of illiquid assets, l, and
+            end-of-period illiquid assets, b.
             
         Returns
         -------
         None
         '''
+        assert np.array(n_list).all() >= 0, 'n should be non-negative'
         self.nZero = np.array(n_list).all() == 0
-        self.dMax = dMax
+        self.MaxIRA = MaxIRA
+        self.PenIRA = PenIRA
+        self.cFuncPure = deepcopy(cFuncPure)
+        self.output == output
         
-        if not self.nZero: # b grid is not degenerate
-            self.interpolator = interp2d(m_list,n_list,d_list,kind='linear')
+        if not self.nZero: # n grid is not degenerate
+            self.dInterpolator = interp2d(m_list,n_list,d_list,kind='linear')
 
     def __call__(self,m,n):
         '''
-        Evaluate the deposit/withdrawal function at given levels of liquid 
-        market resources m and illiquid assets n.
+        Evaluate the consumption and deposit/withdrawal function at given 
+        levels of liquid market resources m and illiquid assets n.
 
         Parameters
         ----------
@@ -318,6 +341,8 @@ class DepositFunc(HARKobject):
 
         Returns
         -------
+        c : float or np.array
+            Consumption given liquid and illiquid market resources, c(m,n).
         d : float or np.array
             Deposit/withdrawal given liquid and illiquid market resources, 
             d(m,n).
@@ -325,13 +350,23 @@ class DepositFunc(HARKobject):
         assert n.all() >= 0, 'n should be non-negative'
         
         if self.nZero:
+            c = self.cFuncPure(m,n)
             d = 0
         else:
-            d = self.interpolator(m,n)
+            d = self.dInterpolator(m,n)
             d[d < -n] = -n
-            d[d > self.dMax] = self.dMax
+            d[d > self.MaxIRA] = self.MaxIRA
             
-        return d
+            l = m + (1-self.PenIRA*(d < 0))*d
+            b = n + d
+            c = self.cFuncPure(l,b)
+        
+        if self.output == 'both':
+            return c,d
+        elif self.output == 'cFunc':
+            return c
+        elif self.output == 'dFunc':
+            return d        
         
 class ConsIRASolver(ConsIndShockSolver):
     '''
@@ -814,7 +849,6 @@ class ConsIRASolver(ConsIndShockSolver):
         
         return v
         
-        
     def makecAnddFunc(self):
         '''
         Makes the optimal IRA deposit/withdrawal function for this period and
@@ -837,21 +871,18 @@ class ConsIRASolver(ConsIndShockSolver):
             mNrm = self.aNrmNow.flatten()
             nNrm = np.repeat(self.bNrmNow,self.aNrmCount)        
            
-            dNrm = [basinhopping(self.makedvFunc,0,
+            dNrm_list = [basinhopping(self.makedvFunc,0,
                                 minimizer_kwargs={"bounds":((-n,self.MaxIRA),),
                                                   "args":(m,n)})
-                                                     for m,n in zip(mNrm,nNrm)]
-        
-            dNrm = np.array(dNrm)
-            lNrm = mNrm + (1 - self.PenIRA*(dNrm < 0))*dNrm
-            bNrm = nNrm + dNrm
-            cNrm = self.cFuncNowPure(lNrm,bNrm)
+                                                     for m,n in zip(mNrm,nNrm)]        
+            dNrm = np.array(dNrm_list)
             
-            self.dFuncNow = DepositFunc(mNrm,nNrm,dNrm,self.MaxIRA)
-            self.cFuncNow = PureConsumptionFunc(mNrm,nNrm,cNrm,
-                                                self.BoroCnstFunc,
-                                                self.MPCminNow*self.hNrmNow,
-                                                self.MPCminNow)
+            self.cFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm,self.MaxIRA,
+                                              self.PenIRA,self.cFuncNowPure,
+                                              output='cFunc')
+            self.dFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm,self.MaxIRA,
+                                              self.PenIRA,self.cFuncNowPure,
+                                              output='dFunc')
     
 
         
