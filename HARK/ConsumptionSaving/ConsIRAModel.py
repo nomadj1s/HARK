@@ -268,7 +268,8 @@ class EndOfPeriodValueFunc(HARKobject):
             assert np.sum(b) == 0, 'Illiquid assets should be zero!'
             w = self.interpolator(a)
         else:
-            w = self.interpolator(a,b)
+            w = [self.interpolator(ai,bi) for ai,bi in zip(a,b)]
+            w = np.array(w).flatten()
             
         return w
             
@@ -353,7 +354,8 @@ class ConsIRAPolicyFunc(HARKobject):
             c = self.cFuncPure(m,n)
             d = 0
         else:
-            d = self.dInterpolator(m,n)
+            d = [self.dInterpolator(mi,ni) for mi,ni in zip(m,n)]
+            d = np.array(d).flatten()
             d[d < -n] = -n[d < -n]
             d[d > self.MaxIRA] = self.MaxIRA
             
