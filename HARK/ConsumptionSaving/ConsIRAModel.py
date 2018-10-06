@@ -162,8 +162,8 @@ class PureConsumptionFunc(HARKobject):
         -------
         None
         '''
-        assert np.array(b_list).all() >= 0, 'b should be non-negative'
-        self.bZero = np.array(b_list).all() == 0
+        assert np.array(b_list >= 0).all(), 'b should be non-negative'
+        self.bZero = np.array(b_list == 0).all()
         self.lMin  = deepcopy(lMin)
         
         if self.bZero: # b grid is degenerate
@@ -190,16 +190,16 @@ class PureConsumptionFunc(HARKobject):
             Pure consumption given liquid and illiquid market resources, 
             c(l,b).
         '''
-        assert b.all() >= 0, 'b should be non-negative'
+        assert np.array(b >= 0).all(), 'b should be non-negative'
         
-        if l <= self.lMin(b):
-            c = 0
+        if self.bZero:
+            c = self.interpolator(l)
         else:
-            if self.bZero:
-                c = self.interpolator(l)
-            else:
-                c = self.interpolator(l,b)
-            
+            c = self.interpolator(l,b)
+        
+        # Set consumpgion to zero if l is below asset minimum
+        c[l <= self.lMin(b)] = 0
+        
         return c
     
 class EndOfPeriodValueFunc(HARKobject):
@@ -235,8 +235,8 @@ class EndOfPeriodValueFunc(HARKobject):
         -------
         None
         '''
-        assert np.array(b_list).all() >= 0, 'b should be non-negative'
-        self.bZero = np.array(b_list).all() == 0
+        assert np.array(b_list >= 0).all(), 'b should be non-negative'
+        self.bZero = np.array(b_list == 0).all()
         
         if self.bZero: # b grid is degenerate
             self.interpolator = LinearInterp(a_list,w_list,intercept_limit,
@@ -262,7 +262,7 @@ class EndOfPeriodValueFunc(HARKobject):
             End-of-periord value given liquid and illiquid market resources, 
             w(a,b).
         '''
-        assert b.all() >= 0, 'b should be non-negative'
+        assert np.array(b >= 0).all(), 'b should be non-negative'
         
         if self.bZero:
             assert np.sum(b) == 0, 'Illiquid assets should be zero!'
@@ -317,12 +317,12 @@ class ConsIRAPolicyFunc(HARKobject):
         -------
         None
         '''
-        assert np.array(n_list).all() >= 0, 'n should be non-negative'
-        self.nZero = np.array(n_list).all() == 0
+        assert np.array(n_list >= 0).all(), 'n should be non-negative'
+        self.nZero = np.array(n_list == 0).all()
         self.MaxIRA = MaxIRA
         self.PenIRA = PenIRA
         self.cFuncPure = deepcopy(cFuncPure)
-        self.output == output
+        self.output = output
         
         if not self.nZero: # n grid is not degenerate
             self.dInterpolator = interp2d(m_list,n_list,d_list,kind='linear')
@@ -347,14 +347,14 @@ class ConsIRAPolicyFunc(HARKobject):
             Deposit/withdrawal given liquid and illiquid market resources, 
             d(m,n).
         '''
-        assert n.all() >= 0, 'n should be non-negative'
+        assert np.array(n >= 0).all(), 'n should be non-negative'
         
         if self.nZero:
             c = self.cFuncPure(m,n)
             d = 0
         else:
             d = self.dInterpolator(m,n)
-            d[d < -n] = -n
+            d[d < -n] = -n[d < -n]
             d[d > self.MaxIRA] = self.MaxIRA
             
             l = m + (1-self.PenIRA*(d < 0))*d
@@ -841,11 +841,17 @@ class ConsIRASolver(ConsIndShockSolver):
             Value function given d, m, and n.
         '''
         bNrm = nNrm + dNrm
+        assert np.array(bNrm >= 0).all(), 'b should be non-negative, values' + str(dNrm) + ' ' + str(mNrm) + ' ' + str(nNrm) + ' .'
+        
         lNrm = mNrm + (1 - self.PenIRA*(dNrm < 0))*dNrm
         cNrm = self.cFuncNowPure(lNrm,bNrm)
         aNrm = lNrm - cNrm
         
-        v = self.u(cNrm,self.CRRA) + self.EndOfPrdvFunc(aNrm,bNrm)
+        # can't actually evaluate cNrm == 0
+        if not cNrm > 0.0:
+            cNrm = 0.0001
+        
+        v = self.u(cNrm) + self.EndOfPrdvFunc(aNrm,bNrm)
         
         return v
         
@@ -871,9 +877,9 @@ class ConsIRASolver(ConsIndShockSolver):
             mNrm = self.aNrmNow.flatten()
             nNrm = np.repeat(self.bNrmNow,self.aNrmCount)        
            
-            dNrm_list = [basinhopping(self.makedvFunc,0,
+            dNrm_list = [basinhopping(self.makevOfdFunc,0,
                                 minimizer_kwargs={"bounds":((-n,self.MaxIRA),),
-                                                  "args":(m,n)})
+                                                  "args":(m,n)}).x
                                                      for m,n in zip(mNrm,nNrm)]        
             dNrm = np.array(dNrm_list)
             
