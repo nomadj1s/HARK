@@ -195,7 +195,8 @@ class PureConsumptionFunc(HARKobject):
         if self.bZero:
             c = self.interpolator(l)
         else:
-            c = self.interpolator(l,b)
+            c = [self.interpolator(li,bi) for li,bi in zip(l,b)]
+            c = np.array(c).flatten()
         
         # Set consumpgion to zero if l is below asset minimum
         c[l <= self.lMin(b)] = 0
