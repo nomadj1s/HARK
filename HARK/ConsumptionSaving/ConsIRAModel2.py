@@ -741,10 +741,16 @@ class ConsIRASolver(ConsIndShockSolver):
         lNrm_ik = cNrm_ik + aNrmNow
         
         # Construct b-specific grids for l, including borrowing constraint
-        lNrm_j = np.tile(np.insert(np.asarray(self.lXtraGrid),0,0.0),
+        # Then construct one grid for l, using non-overlapping segments of 
+        # b-specific grids
+        lNrm_jk = np.tile(np.insert(np.asarray(self.lXtraGrid),0,0.0),
                           (self.bNrmCount,1)) + np.transpose([self.aNrmMinb])
+        lNrm_jk_Xtra = [lNrm_jk[i][lNrm_jk[i] < np.min(lNrm_jk[i-1])] for i in
+                                range(1,len(lNrm_jk))]
+        lNrm_j = np.sort(np.hstack([lNrm_jk[0],
+                                    np.asarray(lNrm_jk_Xtra).flatten()]))
         
-        lNrmCount = np.asarray(self.lXtraGrid).size + 1
+        lNrmCount = lNrm_j.size
         
         # Construct b_k x l_j specific grids for l,c,a, and w
         lNrm_ik_temp,cNrm_ik_temp,aNrm_ik_temp,w_ik_temp = \
