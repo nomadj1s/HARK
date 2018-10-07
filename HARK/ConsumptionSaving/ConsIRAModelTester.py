@@ -29,6 +29,16 @@ solution_terminal = ConsIRASolution(cFunc=cFunc,dFunc=dFunc,vFunc=vFunc,
 
 IncomeDstn = np.array([[.25,.25,.25,.25],[.9,.9,1.1,1.1],[.8,1.2,.8,1.2]])
 
+agrid = HARKobject
+agrid.aXtraMin = 0.001
+agrid.aXtraMax = 20
+agrid.aXtraCount = 48
+agrid.aXtraNestFac = 3
+agrid.aXtraExtra = np.array([None])
+aXtraGrid = constructAssetsGrid(agrid)
+lXtraGrid = constructAssetsGrid(agrid)
+bXtraGrid = constructAssetsGrid(agrid)
+
 ira_params = { 'solution_next' : solution_terminal,
                 'IncomeDstn' : IncomeDstn,
                 'LivPrb' : 0.98,
@@ -42,9 +52,12 @@ ira_params = { 'solution_next' : solution_terminal,
                 'DistIRA' : 1,
                 'PermGroFac' : 1.1,
                 'BoroCnstArt' : None,
-                'aXtraGrid' : np.array([.1,.5,1,2,3,4]),
-                'bXtraGrid' : np.array([.5,1,2,3]),
-                'lXtraGrid' : np.array([.5,.75,1,2,3]),
+                #'aXtraGrid' : np.array([.1,.5,1,2,3,4]),
+                #'bXtraGrid' : np.array([.5,1,2,3]),
+                #'lXtraGrid' : np.array([.5,.75,1,2,3]),
+                'aXtraGrid' : aXtraGrid,
+                'bXtraGrid' : bXtraGrid,
+                'lXtraGrid' : lXtraGrid,
                 'vFuncBool' : True,
                 'CubicBool' : True
                 }
