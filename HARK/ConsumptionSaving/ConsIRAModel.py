@@ -190,6 +190,10 @@ class PureConsumptionFunc(HARKobject):
             Pure consumption given liquid and illiquid market resources, 
             c(l,b).
         '''
+        if type(l) != np.ndarray:
+            l = np.array([l])
+        if type(b) != np.ndarray:
+            b = np.array([b])
         assert np.array(b >= 0).all(), 'b should be non-negative'
         
         if self.bZero:
@@ -263,6 +267,10 @@ class EndOfPeriodValueFunc(HARKobject):
             End-of-periord value given liquid and illiquid market resources, 
             w(a,b).
         '''
+        if type(a) != np.ndarray:
+            a = np.array([a])
+        if type(b) != np.ndarray:
+            b = np.array([b])
         assert np.array(b >= 0).all(), 'b should be non-negative'
         
         if self.bZero:
@@ -349,6 +357,10 @@ class ConsIRAPolicyFunc(HARKobject):
             Deposit/withdrawal given liquid and illiquid market resources, 
             d(m,n).
         '''
+        if type(m) != np.ndarray:
+            m = np.array([m])
+        if type(n) != np.ndarray:
+            n = np.array([n])
         assert np.array(n >= 0).all(), 'n should be non-negative'
         
         if self.nZero:

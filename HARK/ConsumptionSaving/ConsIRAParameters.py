@@ -7,7 +7,7 @@ from copy import copy
 import numpy as np
 
 # -----------------------------------------------------------------------------
-# --- Define all of the parameters for the perfect foresight model ------------
+# --- Define all of the parameters for the consumption IRA model   ------------
 # -----------------------------------------------------------------------------
 
 CRRA = 2.0                          # Coefficient of relative risk aversion
