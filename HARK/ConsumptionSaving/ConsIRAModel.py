@@ -481,9 +481,9 @@ class ConsIRASolver(ConsIndShockSolver):
                          'd': 'illiquid deposit/withdrawal'}
         
         # Initialize the solver.  Most of the steps are exactly the same as in
-        # kinked-R basic case, so start with that.
+        # ConsIndShock case, so start with that.
         ConsIndShockSolver.__init__(self,solution_next,IncomeDstn,LivPrb,
-                                   DiscFac,CRRA,Rsave,PermGroFac,BoroCnstArt,
+                                   DiscFac,CRRA,Rboro,PermGroFac,BoroCnstArt,
                                    aXtraGrid,vFuncBool,CubicBool)
         
         # Assign factors, additional asset grids, IRA penalty, and time to IRA
@@ -629,7 +629,7 @@ class ConsIRASolver(ConsIndShockSolver):
         nNrmNext   = self.Rira/(self.PermGroFac*PermShkVals_temp)*bNrm_temp
         
         # If bXtragrid = [], remove unnecessary dimension from arrays
-        if self.bXtraGrid.size == 0:
+        if np.asarray(self.bXtraGrid).size == 0:
             aNrmNow           = aNrmNow[0]
             mNrmNext          = mNrmNext[0]
             nNrmNext          = nNrmNext[0]

@@ -79,9 +79,9 @@ class ConsIRASolution(HARKobject):
             The beginning-of-period marginal marginal value function, with 
             respect to m, for this period, defined over liquiud market 
             resources and illiquid account balance: vPP = vPPfunc(m,n)
-        mNrmMin : float
+        mNrmMin : function
             The minimum allowable liquid market resources for this period; 
-            the consumption function (etc) are undefined for m < mNrmMin.
+            the consumption function (etc) are undefined for m < mNrmMin(n).
         mNrmMin0 : float
             The minimum allowable liquid market resources for this period,
             conditional on having zero illiquid assets
@@ -170,7 +170,7 @@ class PureConsumptionFunc(HARKobject):
             self.interpolator = LinearInterp(l_list,c_list,intercept_limit,
                                              slope_limit)
         else: # b grid is not degenerate
-            self.interpolator = interp2d(l_list,b_list,c_list,kind='linear')
+            self.interpolator = BilinearInterp(c_listl_list,b_list)
 
     def __call__(self,l,b):
         '''
@@ -190,20 +190,15 @@ class PureConsumptionFunc(HARKobject):
             Pure consumption given liquid and illiquid market resources, 
             c(l,b).
         '''
-        if type(l) != np.ndarray:
-            l = np.array([l])
-        if type(b) != np.ndarray:
-            b = np.array([b])
         assert np.array(b >= 0).all(), 'b should be non-negative'
         
         if self.bZero:
             c = self.interpolator(l)
         else:
-            c = [self.interpolator(li,bi) for li,bi in zip(l,b)]
-            c = np.array(c).flatten()
+            c = self.interpolator(l,b)
         
         # Set consumpgion to zero if l is below asset minimum
-        c[l <= self.lMin(b)] = 0
+        c[l <= self.lMin(np.asarray(b))] = 0
         
         return c
     
@@ -481,9 +476,9 @@ class ConsIRASolver(ConsIndShockSolver):
                          'd': 'illiquid deposit/withdrawal'}
         
         # Initialize the solver.  Most of the steps are exactly the same as in
-        # kinked-R basic case, so start with that.
+        # ConsIndShock case, so start with that.
         ConsIndShockSolver.__init__(self,solution_next,IncomeDstn,LivPrb,
-                                   DiscFac,CRRA,Rsave,PermGroFac,BoroCnstArt,
+                                   DiscFac,CRRA,Rboro,PermGroFac,BoroCnstArt,
                                    aXtraGrid,vFuncBool,CubicBool)
         
         # Assign factors, additional asset grids, IRA penalty, and time to IRA
@@ -629,7 +624,7 @@ class ConsIRASolver(ConsIndShockSolver):
         nNrmNext   = self.Rira/(self.PermGroFac*PermShkVals_temp)*bNrm_temp
         
         # If bXtragrid = [], remove unnecessary dimension from arrays
-        if self.bXtraGrid.size == 0:
+        if np.asarray(self.bXtraGrid).size == 0:
             aNrmNow           = aNrmNow[0]
             mNrmNext          = mNrmNext[0]
             nNrmNext          = nNrmNext[0]
@@ -661,6 +656,8 @@ class ConsIRASolver(ConsIndShockSolver):
         self.bNrmNow           = bNrmNow
         self.aNrmCount         = aNrmCount
         self.bNrmCount         = bNrmCount
+        self.Kinkbool          = KinkBool
+        self.ShkCount          = ShkCount
         return aNrmNow, bNrmNow
 
     def calcEndOfPrdvAndvP(self):
@@ -747,8 +744,7 @@ class ConsIRASolver(ConsIndShockSolver):
                           (self.bNrmCount,1)) + np.transpose([self.aNrmMinb])
         lNrm_jk_Xtra = [lNrm_jk[i][lNrm_jk[i] < np.min(lNrm_jk[i-1])] for i in
                                 range(1,len(lNrm_jk))]
-        lNrm_j = np.sort(np.hstack([lNrm_jk[0],
-                                    np.asarray(lNrm_jk_Xtra).flatten()]))
+        lNrm_j = np.sort(np.append(lNrm_jk[0],np.hstack(lNrm_jk_Xtra)))
         
         lNrmCount = lNrm_j.size
         
@@ -758,7 +754,7 @@ class ConsIRASolver(ConsIndShockSolver):
              [lNrm_ik,cNrm_ik,aNrmNow,EndOfPrdv]]
         
         # Find where l_j in [l_ik , l_i+1k]
-        lNrm_j_temp = lNrm_j[:,:,None]
+        lNrm_j_temp = np.tile(lNrm_j[:,None],(self.bNrmCount,1,1))
         lNrm_j_mask = (lNrm_j_temp > lNrm_ik_temp[:,:,:-1]) \
                         & ~(lNrm_j_temp > lNrm_ik_temp[:,:,1:])
         
@@ -788,9 +784,9 @@ class ConsIRASolver(ConsIndShockSolver):
         cNrm_j_k = [[c[np.argmax(v)] if c.size > 0 else 0 for c,v in 
                     zip(ci,vi)] for ci,vi in zip(cNrm_j_ik,v_j_ik)]
             
-        c_for_interpolation = np.array(cNrm_j_k).flatten()
-        l_for_interpolation = lNrm_j.flatten()
-        b_for_interpolation = np.repeat(bNrmNow,lNrmCount)
+        c_for_interpolation = np.transpose(np.array(cNrm_j_k))
+        l_for_interpolation = lNrm_j
+        b_for_interpolation = bNrmNow
         
         return c_for_interpolation, l_for_interpolation, b_for_interpolation
     
@@ -835,6 +831,48 @@ class ConsIRASolver(ConsIndShockSolver):
         -------
         none
         '''
+        aNrmNow_Xtra = [self.aNrmNow[i][self.aNrmNow[i] < 
+                                     np.min(self.aNrmNow[i-1])] for i in
+                                range(1,len(self.aNrmNow))]
+        aNrmNowUniform = np.sort(np.append(self.aNrmNow[0],
+                                             np.hstack(aNrmNow_Xtra)))
+        aNrm = np.tile(aNrmNowUniform,(self.bNrmCount,1))
+        aNrmCount = aNrm.size
+        
+        
+        aNrm_temp = np.transpose(np.tile(aNrm,(self.ShkCount,1,1)),(1,0,2))
+        bNrm_temp   = np.transpose(np.tile(self.bNrmNow[:,None],
+                                           (aNrmCount,1,
+                                            self.ShkCount)),(1,2,0))
+        
+        # Tile arrays of the income shocks and put them into useful shapes
+        PermShkVals_temp  = np.transpose(np.tile(self.PermShkValsNext,
+                                                 (self.bNrmCount,aNrmCount,1)),
+                                                                    (0,2,1))
+        TranShkVals_temp  = np.transpose(np.tile(self.TranShkValsNext,
+                                                 (self.bNrmCount,aNrmCount,1)),
+                                                                    (0,2,1))
+        ShkPrbs_temp      = np.transpose(np.tile(self.ShkPrbsNext,
+                                                 (self.bNrmCount,aNrmCount,1)),
+                                                                    (0,2,1))
+        
+        # Make a 2D array of the interest factor at each asset gridpoint
+        Rfree_Mat = self.Rsave*np.ones(aNrm.shape)
+        if self.KinkBool:
+            Rfree_Mat[aNrm < 0] = self.Rboro
+        
+        # Get liquid assets next period
+        mNrmNext   = Rfree_Mat[:, None]/(self.PermGroFac*
+                              PermShkVals_temp)*aNrm_temp + TranShkVals_temp
+                            
+        # Get illiquid assets nex period
+        nNrmNext   = self.Rira/(self.PermGroFac*PermShkVals_temp)*bNrm_temp
+        
+        # Calculate end of period value functions
+        sum_axis = self.mNrmNext.ndim - 2
+        
+        
+        
         aNrm = self.aNrmNow.flatten()
         bNrm = np.repeat(self.bNrmNow,self.aNrmCount)
         w_ab = EndOfPrdv.flatten()
