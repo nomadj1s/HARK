@@ -527,17 +527,24 @@ class ConsIRASolver(ConsIndShockSolver):
         else:
             bPDVFactorWithdrawT_ira = (self.Rira/self.Rboro)
         
+        bPDVFactorWithdrawNow = (1 - self.PenIRA)
+        
         # Take maximum PDV factor
         bPDVFactor = max(bPDVFactorWithdrawNext,bPDVFactorWithdrawT_ira)
+        bPDVFactor_n = max(bPDVFactorWithdrawNow,bPDVFactorWithdrawT_ira)
         
         # Calculate the minimum allowable value of money resources in this 
         # period, when b = 0
         BoroCnstNat0 = ((self.solution_next.mNrmMin0 - self.TranShkMinNext)*
-                           (self.PermGroFac*self.PermShkMinNext)/self.Rfree)
+                           (self.PermGroFac*self.PermShkMinNext)/self.Rboro)
                            
         # Create natural borrowing constraint for different values of b
-        self.BoroCnstNat = BoroCnstNat0 - np.append([0],bPDVFactor*np.asarray(
+        self.BoroCnstNata = BoroCnstNat0 - np.append([0],bPDVFactor*np.asarray(
                         self.bXtraGrid))
+        
+        self.BoroCnstNatn = BoroCnstNat0 - np.append([0],bPDVFactor_n*
+                                                     np.asarray(self.bXtraGrid)
+                                                     )
                            
         # Note: need to be sure to handle BoroCnstArt==None appropriately. 
         # In Py2, this would evaluate to 5.0:  np.max([None, 5.0]).
@@ -545,10 +552,12 @@ class ConsIRASolver(ConsIndShockSolver):
         # directly address the situation in which BoroCnstArt == None:
         if BoroCnstArt is None:
             self.mNrmMin0 = BoroCnstNat0
-            self.aNrmMinb = self.BoroCnstNat
+            self.aNrmMinb = self.BoroCnstNata
+            self.mNrmMinn = self.BoroCnstNatn
         else:
             self.mNrmMin0 = np.max([BoroCnstNat0,BoroCnstArt])
-            self.aNrmMinb = np.maximum(BoroCnstArt,self.BoroCnstNat)
+            self.aNrmMinb = np.maximum(BoroCnstArt,self.BoroCnstNata)
+            self.mNrmMinn = np.maximum(BoroCnstArt,self.BoroCnstNatn)
             
         if BoroCnstNat0 < self.mNrmMin0: 
             self.MPCmaxEff = 1.0 # If actually constrained, MPC near limit is 1
@@ -558,9 +567,14 @@ class ConsIRASolver(ConsIndShockSolver):
         # Calculates natural borrowing constraint
         if self.aNrmMinb.size == 1:
             self.BoroCnstFunc = ConstantFunction(self.aNrmMinb)
+            self.BoroCnstFunc_n = ConstantFunction(self.mNrmMinn)
         else:
-            self.BoroCnstFunc = LinearInterp(np.append([0],np.asarray(
-                        self.bXtraGrid)),self.aNrmMinb)
+            self.BoroCnstFunc = LinearInterp(np.append([0],
+                                             np.asarray(self.bXtraGrid)),
+                                             self.aNrmMinb)
+            self.BoroCnstFunc_n = LinearInterp(np.append([0],
+                                             np.asarray(self.bXtraGrid)),
+                                             self.mNrmMinn)
     
     def prepareToCalcEndOfPrdvAndvP(self):
         '''

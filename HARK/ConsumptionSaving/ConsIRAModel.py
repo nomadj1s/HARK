@@ -538,7 +538,7 @@ class ConsIRASolver(ConsIndShockSolver):
         # Calculate the minimum allowable value of money resources in this 
         # period, when b = 0
         BoroCnstNat0 = ((self.solution_next.mNrmMin0 - self.TranShkMinNext)*
-                           (self.PermGroFac*self.PermShkMinNext)/self.Rfree)
+                           (self.PermGroFac*self.PermShkMinNext)/self.Rboro)
                            
         # Create natural borrowing constraint for different values of b
         self.BoroCnstNat = BoroCnstNat0 - np.append([0],bPDVFactor*np.asarray(
