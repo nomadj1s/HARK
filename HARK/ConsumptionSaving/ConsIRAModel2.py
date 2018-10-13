@@ -249,7 +249,7 @@ class EndOfPeriodValueFunc(HARKobject):
             self.interpolator = LinearInterp(a_list,w_list,intercept_limit,
                                              slope_limit)
         else: # b grid is not degenerate
-            self.interpolator = BilinearInterp(a_list,b_list,w_list)
+            self.interpolator = BilinearInterp(w_list,a_list,b_list)
 
     def __call__(self,a,b):
         '''
@@ -329,7 +329,7 @@ class ConsIRAPolicyFunc(HARKobject):
         self.output = output
         
         if not self.nZero: # n grid is not degenerate
-            self.dInterpolator = BilinearInterp(m_list,n_list,d_list)
+            self.dInterpolator = BilinearInterp(d_list,m_list,n_list)
 
     def __call__(self,m,n):
         '''
@@ -966,12 +966,13 @@ class ConsIRASolver(ConsIndShockSolver):
                                                          "args":(m,n)}).x 
                           for m in mNrm] for n in nNrm] 
             
-            dNrm = np.array(dNrm_list)
+            dNrm = np.array(dNrm_list).flatten().reshape(len(nNrm),len(mNrm))
+            dNrm_trans = np.transpose(dNrm)
             
-            self.cFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm,self.MaxIRA,
+            self.cFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm_trans,self.MaxIRA,
                                               self.PenIRA,self.cFuncNowPure,
                                               output='cFunc')
-            self.dFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm,self.MaxIRA,
+            self.dFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm_trans,self.MaxIRA,
                                               self.PenIRA,self.cFuncNowPure,
                                               output='dFunc')
     
