@@ -668,7 +668,7 @@ class ConsIRASolver(ConsIndShockSolver):
         self.bNrmNow           = bNrmNow
         self.aNrmCount         = aNrmCount
         self.bNrmCount         = bNrmCount
-        self.Kinkbool          = KinkBool
+        self.KinkBool          = KinkBool
         self.ShkCount          = ShkCount
         return aNrmNow, bNrmNow
 
@@ -860,7 +860,7 @@ class ConsIRASolver(ConsIndShockSolver):
         aNrmNowUniform = np.sort(np.append(self.aNrmNow[0],
                                              np.hstack(aNrmNow_Xtra)))
         aNrm = np.tile(aNrmNowUniform,(self.bNrmCount,1))
-        aNrmCount = aNrm.size
+        aNrmCount = aNrmNowUniform.size
         
         
         aNrm_temp = np.transpose(np.tile(aNrm,(self.ShkCount,1,1)),(1,0,2))
@@ -892,11 +892,11 @@ class ConsIRASolver(ConsIndShockSolver):
         nNrmNext   = self.Rira/(self.PermGroFac*PermShkVals_temp)*bNrm_temp
         
         # Calculate end of period value functions
-        EndOfPrdv, _ = self.calcEndOfPrdvAndvP(mNrmNext,nNrmNext,
+        EndOfPrdvUniform, _ = self.calcEndOfPrdvAndvP(mNrmNext,nNrmNext,
                                                PermShkVals_temp,ShkPrbs_temp,
                                                Rfree_Mat)
         
-        EndOfPrdv_trans = np.transpose(EndOfPrdv)
+        EndOfPrdv_trans = np.transpose(EndOfPrdvUniform)
         
         self.EndOfPrdvFunc = EndOfPeriodValueFunc(aNrmNowUniform,self.bNrmNow,
                                                   EndOfPrdv_trans,
@@ -957,23 +957,23 @@ class ConsIRASolver(ConsIndShockSolver):
             self.dFuncNow = ConstantFunction(0)
             self.cFuncNow = self.cFuncNowPure
         else:
-            mNrm = np.tile(self.aNrmNowUniform,(self.bNrmCount,1))
-            nNrm = np.tile(self.bNrmNow[:,None],self.aNrmNowUniform.size)        
+            mNrm = self.aNrmNowUniform
+            nNrm = self.bNrmNow       
            
             dNrm_list = [[basinhopping(self.makevOfdFunc,0,
                                        minimizer_kwargs={"bounds":((-n + 1e-10,
                                                          self.MaxIRA),),
-                                                         "args":(mi,ni)}).x 
-                          for mi,ni in zip(m,n)] for m,n in zip(mNrm,nNrm)] 
+                                                         "args":(m,n)}).x 
+                          for m in mNrm] for n in nNrm] 
             
             dNrm = np.array(dNrm_list)
             
-            self.cFuncNow = ConsIRAPolicyFunc(self.aNrmNowUniform,self.bNrmNow,
-                                              dNrm,self.MaxIRA,self.PenIRA,
-                                              self.cFuncNowPure,output='cFunc')
-            self.dFuncNow = ConsIRAPolicyFunc(self.aNrmNowUniform,self.bNrmNow,
-                                              dNrm,self.MaxIRA,self.PenIRA,
-                                              self.cFuncNowPure,output='dFunc')
+            self.cFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm,self.MaxIRA,
+                                              self.PenIRA,self.cFuncNowPure,
+                                              output='cFunc')
+            self.dFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm,self.MaxIRA,
+                                              self.PenIRA,self.cFuncNowPure,
+                                              output='dFunc')
     
 
         
