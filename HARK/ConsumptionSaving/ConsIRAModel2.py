@@ -28,12 +28,14 @@ sys.path.insert(0, os.path.abspath('./'))
 from core import AgentType, NullFunc, HARKobject
 from interpolation import CubicInterp, LowerEnvelope, LinearInterp,\
                            BilinearInterp, ConstantFunction
-from ConsIndShockModel import ConsumerSolution, ConsIndShockSolver
+from ConsIndShockModel import ConsumerSolution, ConsIndShockSolver, \
+                                constructAssetsGrid
 from simulation import drawDiscrete, drawBernoulli, drawLognormal, drawUniform
 from utilities import approxMeanOneLognormal, addDiscreteOutcomeConstantMean,\
                            combineIndepDstns, makeGridExpMult, CRRAutility, \
                            CRRAutilityP, CRRAutilityPP, CRRAutilityP_inv, \
-                           CRRAutility_invP, CRRAutility_inv, CRRAutilityP_invP 
+                           CRRAutility_invP, CRRAutility_inv, \
+                           CRRAutilityP_invP, plotFuncs 
 
 utility       = CRRAutility
 utilityP      = CRRAutilityP
