@@ -284,17 +284,12 @@ class EndOfPeriodValueFunc(HARKobject):
             
 class ConsIRAPolicyFunc(HARKobject):
     '''
-    Class for representing the policy function in the consumption opt-
-    imal consumption and medical care for given market resources, permanent income,
-    and medical need shock.  Always obeys Con + MedPrice*Med = optimal spending.
-    '''
-    '''
     A class for representing the optimal consumtion and deposit/withdrawal 
     functions.  The underlying interpolation is in the space of (m,n). If n is 
     degenerate, uses LinearInterp for consumption. If n is not degenerate, uses 
     interp2d for consumption and deposit/withdrawal. Always obeys:
         
-        l = m + (1-t(d))*d
+        l = m - (1-t(d))*d
         b = n + d
         c = c(l,b)
     '''
@@ -304,8 +299,8 @@ class ConsIRAPolicyFunc(HARKobject):
                  output='both'):
         '''
         Constructor for consumption and deposit/withdrawal functions, c(m,n)
-        and d(m,n). Uses 1D for c(m,n) interpolation when n is degenerate and 
-        2D when n is not degenerate.
+        and d(m,n). Uses LinearInterp for c(m,n) interpolation when n is 
+        degenerate and BilinearInterp when n is not degenerate.
 
         Parameters
         ----------
@@ -319,9 +314,14 @@ class ConsIRAPolicyFunc(HARKobject):
             (Normalized) deposit/withdrawal points for interpolation.
         MaxIRA : float
             (Nomralized) maximum allowable IRA deposit, d <= MaxIRA.
+        PenIRA : float
+            Penalty on withdrawals from IRA.
         cFucnPure : float
             (Nomralized) consumption as a function of illiquid assets, l, and
             end-of-period illiquid assets, b.
+        output : string
+            Determines whether a consumption function, deposit function, or
+            both are created.
             
         Returns
         -------
@@ -372,7 +372,7 @@ class ConsIRAPolicyFunc(HARKobject):
             d[d < -n] = -n[d < -n]
             d[d > self.MaxIRA] = self.MaxIRA
             
-            l = m + (1-self.PenIRA*(d < 0))*d
+            l = m - (1-self.PenIRA*(d < 0))*d
             b = n + d
             c = self.cFuncPure(l,b)
         
@@ -858,7 +858,7 @@ class ConsIRASolver(ConsIndShockSolver):
         bNrm = nNrm + dNrm
         assert np.array(bNrm >= 0).all(), 'b should be non-negative, values' + str(dNrm) + ' ' + str(mNrm) + ' ' + str(nNrm) + ' .'
         
-        lNrm = mNrm + (1 - self.PenIRA*(dNrm < 0))*dNrm
+        lNrm = mNrm - (1 - self.PenIRA*(dNrm < 0))*dNrm
         cNrm = self.cFuncNowPure(lNrm,bNrm)
         aNrm = lNrm - cNrm
         

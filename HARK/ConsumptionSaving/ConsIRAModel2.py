@@ -150,9 +150,9 @@ class PureConsumptionFunc(HARKobject):
             interpolation.
         c_list : np.array
             (Normalized) consumption points for interpolation.
-        lmin : LinearInterp or ConstantFunction
+        lMin : LinearInterp or ConstantFunction
             A function that returns the minimum level of l allowable, given b.
-            For l < lmin(b), return c = 0.
+            For l < lMin(b), return c = 0.
         intercept_limit : float
             For linear interpolation. Intercept of limiting linear function.
         slope_limit : float
@@ -170,7 +170,7 @@ class PureConsumptionFunc(HARKobject):
             self.interpolator = LinearInterp(l_list,c_list,intercept_limit,
                                              slope_limit)
         else: # b grid is not degenerate
-            self.interpolator = BilinearInterp(c_listl_list,b_list)
+            self.interpolator = BilinearInterp(c_list,l_list,b_list)
 
     def __call__(self,l,b):
         '''
@@ -207,11 +207,11 @@ class EndOfPeriodValueFunc(HARKobject):
     A class for representing the end-of-period value function, given end of 
     period assets a and b.  The underlying interpolation is in the space of 
     (a,b). If b is degenerate, uses LinearInterp. If b is not degenerate, uses 
-    interp2d.
+    BilinearInterp.
     '''
     distance_criteria = ['a_list','b_list','w_list']
 
-    def __init__(self,a_list,b_list,w_list,intercept_limit=None,
+    def __init__(self,a_list,b_list,w_list,aMin,uFunc,intercept_limit=None,
                  slope_limit=None):
         '''
         Constructor for a end-of-period value function, w(a,b).
@@ -226,6 +226,11 @@ class EndOfPeriodValueFunc(HARKobject):
             interpolation.
         w_list : np.array
             Value points for interpolation.
+        aMin : LinearInterp or ConstantFunction
+            A function that returns the minimum level of a allowable given b.
+            For a < aMin(b), return w = u(0.0001)
+        uFunc: lambda function
+            Flow utility function
         intercept_limit : float
             For linear interpolation. Intercept of limiting linear function.
         slope_limit : float
@@ -237,12 +242,14 @@ class EndOfPeriodValueFunc(HARKobject):
         '''
         assert np.array(b_list >= 0).all(), 'b should be non-negative'
         self.bZero = np.array(b_list == 0).all()
+        self.aMin = deepcopy(aMin)
+        self.u = deepcopy(uFunc)
         
         if self.bZero: # b grid is degenerate
             self.interpolator = LinearInterp(a_list,w_list,intercept_limit,
                                              slope_limit)
         else: # b grid is not degenerate
-            self.interpolator = interp2d(a_list,b_list,w_list,kind='linear')
+            self.interpolator = BilinearInterp(a_list,b_list,w_list)
 
     def __call__(self,a,b):
         '''
@@ -262,34 +269,26 @@ class EndOfPeriodValueFunc(HARKobject):
             End-of-periord value given liquid and illiquid market resources, 
             w(a,b).
         '''
-        if type(a) != np.ndarray:
-            a = np.array([a])
-        if type(b) != np.ndarray:
-            b = np.array([b])
         assert np.array(b >= 0).all(), 'b should be non-negative'
         
         if self.bZero:
-            assert np.sum(b) == 0, 'Illiquid assets should be zero!'
             w = self.interpolator(a)
         else:
-            w = [self.interpolator(ai,bi) for ai,bi in zip(a,b)]
-            w = np.array(w).flatten()
+            w = self.interpolator(a,b)
+        
+        # Set w to u(0.0001) if m is below asset minimum
+        w[a <= self.aMin(np.asarray(b))] = self.u(0.0001)
             
         return w
             
 class ConsIRAPolicyFunc(HARKobject):
-    '''
-    Class for representing the policy function in the consumption opt-
-    imal consumption and medical care for given market resources, permanent income,
-    and medical need shock.  Always obeys Con + MedPrice*Med = optimal spending.
-    '''
     '''
     A class for representing the optimal consumtion and deposit/withdrawal 
     functions.  The underlying interpolation is in the space of (m,n). If n is 
     degenerate, uses LinearInterp for consumption. If n is not degenerate, uses 
     interp2d for consumption and deposit/withdrawal. Always obeys:
         
-        l = m + (1-t(d))*d
+        l = m - (1-t(d))*d
         b = n + d
         c = c(l,b)
     '''
@@ -299,8 +298,8 @@ class ConsIRAPolicyFunc(HARKobject):
                  output='both'):
         '''
         Constructor for consumption and deposit/withdrawal functions, c(m,n)
-        and d(m,n). Uses 1D for c(m,n) interpolation when n is degenerate and 
-        2D when n is not degenerate.
+        and d(m,n). Uses LinearInterp for c(m,n) interpolation when n is 
+        degenerate and BilinearInterp when n is not degenerate.
 
         Parameters
         ----------
@@ -330,7 +329,7 @@ class ConsIRAPolicyFunc(HARKobject):
         self.output = output
         
         if not self.nZero: # n grid is not degenerate
-            self.dInterpolator = interp2d(m_list,n_list,d_list,kind='linear')
+            self.dInterpolator = BilinearInterp(m_list,n_list,d_list)
 
     def __call__(self,m,n):
         '''
@@ -362,12 +361,11 @@ class ConsIRAPolicyFunc(HARKobject):
             c = self.cFuncPure(m,n)
             d = 0
         else:
-            d = [self.dInterpolator(mi,ni) for mi,ni in zip(m,n)]
-            d = np.array(d).flatten()
+            d = self.dInterpolator(m,n)
             d[d < -n] = -n[d < -n]
             d[d > self.MaxIRA] = self.MaxIRA
             
-            l = m + (1-self.PenIRA*(d < 0))*d
+            l = m - (1-self.PenIRA*(d < 0))*d
             b = n + d
             c = self.cFuncPure(l,b)
         
@@ -674,7 +672,8 @@ class ConsIRASolver(ConsIndShockSolver):
         self.ShkCount          = ShkCount
         return aNrmNow, bNrmNow
 
-    def calcEndOfPrdvAndvP(self):
+    def calcEndOfPrdvAndvP(self,mNrmNext,nNrmNext,PermShkVals_temp,
+                           ShkPrbs_temp,Rfree_Mat):
         '''
         Calculate end-of-period value function and marginal value function 
         for each point along the aNrmNow and bNrmNow grids. Does so by taking a 
@@ -696,21 +695,31 @@ class ConsIRASolver(ConsIndShockSolver):
             An array of marginal value with respect to liquid assets, given 
             end of period liquid and illiquid assets.
         '''
-        sum_axis = self.mNrmNext.ndim - 2
+        sum_axis = mNrmNext.ndim - 2
+        
+        Valid_m_n = mNrmNext >= self.BoroCnstFunc_n(nNrmNext)
+        
+        Censored_vFuncNext = np.where(Valid_m_n,self.vFuncNext(mNrmNext,
+                                                               nNrmNext),
+                                      self.u(0.0001))
+        
+        Censored_vPfuncNext = np.where(Valid_m_n,self.vPfuncNext(mNrmNext,
+                                                                 nNrmNext),
+                                       self.uP(0.0001))
         
         EndOfPrdv   = self.DiscFacEff*\
-                            np.sum(self.PermShkVals_temp**
+                            np.sum(PermShkVals_temp**
                                    (1.0-self.CRRA)*self.PermGroFac**
                                    (1.0-self.CRRA)*
-                                   self.vFuncNext(self.mNrmNext,self.nNrmNext)*
-                                   self.ShkPrbs_temp,axis=sum_axis)
+                                   Censored_vFuncNext*
+                                   ShkPrbs_temp,axis=sum_axis)
         
         EndOfPrdvP  = self.DiscFacEff*\
-                            self.Rfree_Mat*\
+                            Rfree_Mat*\
                             self.PermGroFac**(-self.CRRA)*\
-                            np.sum(self.PermShkVals_temp**(-self.CRRA)*\
-                                   self.vPfuncNext(self.mNrmNext,self.nNrmNext)
-                                   *self.ShkPrbs_temp,axis=sum_axis)
+                            np.sum(PermShkVals_temp**(-self.CRRA)*\
+                                   Censored_vPfuncNext*
+                                   ShkPrbs_temp,axis=sum_axis)
         return EndOfPrdv, EndOfPrdvP
 
     def getPointsForPureConsumptionInterpolation(self,EndOfPrdv,
@@ -855,7 +864,7 @@ class ConsIRASolver(ConsIndShockSolver):
         
         
         aNrm_temp = np.transpose(np.tile(aNrm,(self.ShkCount,1,1)),(1,0,2))
-        bNrm_temp   = np.transpose(np.tile(self.bNrmNow[:,None],
+        bNrm_temp = np.transpose(np.tile(self.bNrmNow[:,None],
                                            (aNrmCount,1,
                                             self.ShkCount)),(1,2,0))
         
@@ -883,15 +892,16 @@ class ConsIRASolver(ConsIndShockSolver):
         nNrmNext   = self.Rira/(self.PermGroFac*PermShkVals_temp)*bNrm_temp
         
         # Calculate end of period value functions
-        sum_axis = self.mNrmNext.ndim - 2
+        EndOfPrdv, _ = self.calcEndOfPrdvAndvP(mNrmNext,nNrmNext,
+                                               PermShkVals_temp,ShkPrbs_temp,
+                                               Rfree_Mat)
         
+        EndOfPrdv_trans = np.transpose(EndOfPrdv)
         
-        
-        aNrm = self.aNrmNow.flatten()
-        bNrm = np.repeat(self.bNrmNow,self.aNrmCount)
-        w_ab = EndOfPrdv.flatten()
-        
-        self.EndOfPrdvFunc = EndOfPeriodValueFunc(aNrm,bNrm,w_ab)
+        self.EndOfPrdvFunc = EndOfPeriodValueFunc(aNrmNowUniform,self.bNrmNow,
+                                                  EndOfPrdv_trans,
+                                                  self.BoroCnstFunc,self.u)
+        self.aNrmNowUniform = aNrmNowUniform
         
     def makevOfdFunc(self,dNrm,mNrm,nNrm):
         '''
@@ -916,7 +926,7 @@ class ConsIRASolver(ConsIndShockSolver):
         bNrm = nNrm + dNrm
         assert np.array(bNrm >= 0).all(), 'b should be non-negative, values' + str(dNrm) + ' ' + str(mNrm) + ' ' + str(nNrm) + ' .'
         
-        lNrm = mNrm + (1 - self.PenIRA*(dNrm < 0))*dNrm
+        lNrm = mNrm - (1 - self.PenIRA*(dNrm < 0))*dNrm
         cNrm = self.cFuncNowPure(lNrm,bNrm)
         aNrm = lNrm - cNrm
         
@@ -947,22 +957,23 @@ class ConsIRASolver(ConsIndShockSolver):
             self.dFuncNow = ConstantFunction(0)
             self.cFuncNow = self.cFuncNowPure
         else:
-            mNrm = self.aNrmNow.flatten()
-            nNrm = np.repeat(self.bNrmNow,self.aNrmCount)        
+            mNrm = np.tile(self.aNrmNowUniform,(self.bNrmCount,1))
+            nNrm = np.tile(self.bNrmNow[:,None],self.aNrmNowUniform.size)        
            
-            dNrm_list = [basinhopping(self.makevOfdFunc,0,
-                                minimizer_kwargs={"bounds":((-n + 1e-10,
-                                                             self.MaxIRA),),
-                                                  "args":(m,n)}).x
-                                                     for m,n in zip(mNrm,nNrm)]        
+            dNrm_list = [[basinhopping(self.makevOfdFunc,0,
+                                       minimizer_kwargs={"bounds":((-n + 1e-10,
+                                                         self.MaxIRA),),
+                                                         "args":(mi,ni)}).x 
+                          for mi,ni in zip(m,n)] for m,n in zip(mNrm,nNrm)] 
+            
             dNrm = np.array(dNrm_list)
             
-            self.cFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm,self.MaxIRA,
-                                              self.PenIRA,self.cFuncNowPure,
-                                              output='cFunc')
-            self.dFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm,self.MaxIRA,
-                                              self.PenIRA,self.cFuncNowPure,
-                                              output='dFunc')
+            self.cFuncNow = ConsIRAPolicyFunc(self.aNrmNowUniform,self.bNrmNow,
+                                              dNrm,self.MaxIRA,self.PenIRA,
+                                              self.cFuncNowPure,output='cFunc')
+            self.dFuncNow = ConsIRAPolicyFunc(self.aNrmNowUniform,self.bNrmNow,
+                                              dNrm,self.MaxIRA,self.PenIRA,
+                                              self.cFuncNowPure,output='dFunc')
     
 
         
