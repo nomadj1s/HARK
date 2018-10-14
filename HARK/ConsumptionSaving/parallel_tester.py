@@ -19,22 +19,32 @@ from joblib import Parallel, delayed
 import dill as pickle
 from scipy.optimize import basinhopping
 
+def maxFunc(d,m,n):
+    '''
+    Simple function to maximize over d, given m, n.
+    '''
+    return m*d**4 - n*d**2 + 5
 
+def findMax(m,n):
+    '''
+    wrapper that uses basinhopper to maximize maxFunc
+    '''
+    return basinhopping(maxFunc,0,
+                                minimizer_kwargs={"bounds":((-n,5),),
+                                                  "args":(m,n)}).x
+n_cpus = multiprocessing.cpu_count()
+
+M = np.arange(1,10,1)
+N = np.arange(1,10,1)
 
 start_time = clock()
-d1 = [basinhopping(maxFunc,0,
-                                minimizer_kwargs={"bounds":((0,self.MaxIRA),),
-                                                  "args":(m,n)})
-                                                     for m,n in zip(M,N)]
+d1 = [[findMax(m,n) for m in M] for n in N]
 end_time = clock()
-print('Solving without multithreading took' + mystr(end_time-start_time) + ' seconds.')
+print('Solving without multithreading took ' + mystr(end_time-start_time) + ' seconds.')
 
 start_time = clock()
-d2 = [basinhopping(self.makedvFunc,0,
-                                minimizer_kwargs={"bounds":((0,self.MaxIRA),),
-                                                  "args":(m,n)})
-                                                     for m,n in zip(M,N)]
+d2 = Parallel(n_jobs=n_cpus)(delayed(findMax)(m,n) for m in M for n in N)
 end_time = clock()
-print('Solving with multithreading took' + mystr(end_time-start_time) + ' seconds.')
+print('Solving with multithreading took ' + mystr(end_time-start_time) + ' seconds.')
 
-assert d1 == d2, 'Received difference answers'
+#assert d1 == d2, 'Received difference answers'
