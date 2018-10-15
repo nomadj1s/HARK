@@ -995,7 +995,7 @@ class ConsIRASolver(ConsIndShockSolver):
             dNrm_list = Parallel(n_jobs=n_cpus)(delayed(self.findArgMaxv)(m,n) 
                                                 for n in nNrm for m in mNrm)
             
-            dNrm = np.asarray(dNrm_list).reshape(len(n),len(m))
+            dNrm = np.asarray(dNrm_list).reshape(len(nNrm),len(mNrm))
             dNrm_trans = np.transpose(dNrm)
             
             self.cFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm_trans,self.MaxIRA,
