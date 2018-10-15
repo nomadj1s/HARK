@@ -71,8 +71,8 @@ cNrm,lNrm,bNrm = ex.getPointsForPureConsumptionInterpolation(EndOfPrdv,EndOfPrdv
 ex.makePurecFunc(cNrm,lNrm,bNrm)
 ex.makeEndOfPrdvFunc(EndOfPrdv)
 mystr = lambda number : "{:.4f}".format(number)
-start_time = clock()
+start_time = time()
 ex.makecAnddFunc()
-end_time = clock()
+end_time = time()
 print('Solving a consumer with liquid and illiquid accounts took ' + mystr((end_time-start_time)/3600) + ' hours.')
 

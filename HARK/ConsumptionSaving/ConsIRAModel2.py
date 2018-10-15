@@ -18,7 +18,10 @@ from builtins import object
 from copy import copy, deepcopy
 import numpy as np
 from scipy.optimize import basinhopping
-from time import clock
+from time import clock,time
+from joblib import Parallel, delayed
+import dill as pickle
+import multiprocessing
 
 import sys 
 import os
@@ -909,7 +912,8 @@ class ConsIRASolver(ConsIndShockSolver):
         '''
         Constructs a beginning-period value function, given the IRA deposit (d)
         , beginning-of-period liquid resources and beginning-of-period illiquid
-        assets.
+        assets. Since a minimizer is used, returns negative of the value
+        function.
         
         Parameters
         ----------
@@ -923,7 +927,7 @@ class ConsIRASolver(ConsIndShockSolver):
         Returns
         -------
         v : float
-            Value function given d, m, and n.
+            Negative 1 times the value function given d, m, and n.
         '''
         bNrm = nNrm + dNrm
         assert np.array(bNrm >= 0).all(), 'b should be non-negative, values' + str(dNrm) + ' ' + str(mNrm) + ' ' + str(nNrm) + ' .'
@@ -938,7 +942,31 @@ class ConsIRASolver(ConsIndShockSolver):
         
         v = self.u(cNrm) + self.EndOfPrdvFunc(aNrm,bNrm)
         
-        return v
+        return -v
+    
+    def findArgMaxv(self,mNrm,nNrm):
+        '''
+        Wrapper function that returns d that maximizes value function given
+        mNrm and nNrm.
+        
+        Parameters
+        ----------
+        mNrm : float
+            (Normalized) liquid assets at the beginning of this period.
+        nNrm : float
+            (Normalized) illiquid assets at the beginning of this period.
+            
+        Returns
+        -------
+        d : float
+            Value of d that maximizes v(d,m,n) given m and n.
+        '''
+        d = basinhopping(self.makevOfdFunc,
+                         0,minimizer_kwargs={"bounds":((-nNrm + 1e-10,
+                                                        self.MaxIRA),),
+                                             "args":(mNrm,nNrm)}).x
+        
+        return d
         
     def makecAnddFunc(self):
         '''
@@ -960,15 +988,14 @@ class ConsIRASolver(ConsIndShockSolver):
             self.cFuncNow = self.cFuncNowPure
         else:
             mNrm = self.aNrmNowUniform
-            nNrm = self.bNrmNow       
-           
-            dNrm_list = [[basinhopping(self.makevOfdFunc,0,
-                                       minimizer_kwargs={"bounds":((-n + 1e-10,
-                                                         self.MaxIRA),),
-                                                         "args":(m,n)}).x 
-                          for m in mNrm] for n in nNrm] 
+            nNrm = self.bNrmNow
             
-            dNrm = np.array(dNrm_list).flatten().reshape(len(nNrm),len(mNrm))
+            n_cpus = multiprocessing.cpu_count()
+           
+            dNrm_list = Parallel(n_jobs=n_cpus)(delayed(self.findArgMaxv)(m,n) 
+                                                for n in nNrm for m in mNrm)
+            
+            dNrm = np.asarray(dNrm_list).reshape(len(n),len(m))
             dNrm_trans = np.transpose(dNrm)
             
             self.cFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm_trans,self.MaxIRA,
