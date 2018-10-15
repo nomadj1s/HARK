@@ -70,4 +70,9 @@ EndOfPrdv,EndOfPrdvP = ex.calcEndOfPrdvAndvP(ex.mNrmNext,ex.nNrmNext,ex.PermShkV
 cNrm,lNrm,bNrm = ex.getPointsForPureConsumptionInterpolation(EndOfPrdv,EndOfPrdvP,ex.aNrmNow,ex.bNrmNow)
 ex.makePurecFunc(cNrm,lNrm,bNrm)
 ex.makeEndOfPrdvFunc(EndOfPrdv)
+mystr = lambda number : "{:.4f}".format(number)
+start_time = clock()
 ex.makecAnddFunc()
+end_time = clock()
+print('Solving a consumer with liquid and illiquid accounts took ' + mystr((end_time-start_time)/3600) + ' hours.')
+

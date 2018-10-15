@@ -18,7 +18,7 @@ from builtins import object
 from copy import copy, deepcopy
 import numpy as np
 from scipy.optimize import basinhopping
-from scipy.interpolate import interp2d
+from time import clock
 
 import sys 
 import os
