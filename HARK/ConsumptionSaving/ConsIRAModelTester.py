@@ -76,3 +76,51 @@ ex.makecAnddFunc()
 end_time = time()
 print('Solving a consumer with liquid and illiquid accounts took ' + mystr((end_time-start_time)/3600) + ' hours.')
 
+#Test consumption and deposit functions
+def makecFuncm(n):
+    def cm(m):
+        m = np.asarray(m)
+        ni = n*np.ones(len(m))
+        return ex.cFuncNow(m,ni)
+    return cm
+
+def makedFuncm(n):
+    def dm(m):
+        m = np.asarray(m)
+        ni = n*np.ones(len(m))
+        return ex.dFuncNow(m,ni)
+    return dm
+
+def makecFuncn(m):
+    def cn(n):
+        n = np.asarray(n)
+        mi = m*np.ones(len(n))
+        return ex.cFuncNow(mi,n)
+    return cn
+
+def makedFuncn(m):
+    def dn(n):
+        n = np.asarray(n)
+        mi = m*np.ones(len(n))
+        return ex.dFuncNow(mi,n)
+    return dn
+
+print('Consumption function for different values of n')
+plotFuncs([makecFuncm(n) for n in [0,1,2,3,4]],ex.mNrmMin0,
+           ex.mNrmMin0 + 10,
+           legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2,3,4]]})
+
+print('Deposit function for different values of n')
+plotFuncs([makedFuncm(n) for n in [0,1,2,3,4]],ex.mNrmMin0,
+           ex.mNrmMin0 + 10,
+           legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2,3,4]]})
+
+print('Consumption function of n for different values of m')
+plotFuncs([makecFuncn(m) for m in [0,1,2,3,4]],0,
+           10,
+           legend_kwds={'labels': ["m = " + str(m) for m in [0,1,2,3,4]]})
+
+print('Deposit function of n for different values of m')
+plotFuncs([makedFuncn(m) for m in [0,1,2,3,4]],0,
+           10,
+           legend_kwds={'labels': ["m = " + str(m) for m in [0,1,2,3,4]]})
