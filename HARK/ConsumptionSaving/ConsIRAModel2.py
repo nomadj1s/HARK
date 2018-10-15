@@ -291,7 +291,7 @@ class ConsIRAPolicyFunc(HARKobject):
     A class for representing the optimal consumtion and deposit/withdrawal 
     functions.  The underlying interpolation is in the space of (m,n). If n is 
     degenerate, uses LinearInterp for consumption. If n is not degenerate, uses 
-    interp2d for consumption and deposit/withdrawal. Always obeys:
+    BilinearInterp for consumption and deposit/withdrawal. Always obeys:
         
         l = m - (1-t(d))*d
         b = n + d
