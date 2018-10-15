@@ -383,7 +383,7 @@ class ConsIRAPolicyFunc(HARKobject):
         
 class ConsIRASolver(ConsIndShockSolver):
     '''
-    A class for solving a single period of a consumption-savigs problem with
+    A class for solving a single period of a consumption-savings problem with
     a liquid savings account, and an IRA-like illiquid savings account. Model
     features constant relative risk aversion utility, permanent and transitory
     shocks to income, different interest rates for borowing and saving in the
