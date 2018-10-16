@@ -6,7 +6,7 @@ expires. All models here assume CRRA utility with geometric discounting, no
 bequest motive, and income shocks are fully transitory or fully permanent. The
 model incorporates a different interest rate for saving and borrowing in the
 liquid account, and a separate interest rate for saving in the illiquid
-account.
+account, with a cap on deposits into the illiquid account.
 '''
 
 from __future__ import division
