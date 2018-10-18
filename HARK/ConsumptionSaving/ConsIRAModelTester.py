@@ -52,12 +52,12 @@ ira_params = { 'solution_next' : solution_terminal,
                 'DistIRA' : 1,
                 'PermGroFac' : 1.1,
                 'BoroCnstArt' : None,
-                #'aXtraGrid' : np.array([.1,.5,1,2,3,4]),
-                #'bXtraGrid' : np.array([.5,1,2,3]),
-                #'lXtraGrid' : np.array([.5,.75,1,2,3]),
-                'aXtraGrid' : aXtraGrid,
-                'bXtraGrid' : bXtraGrid,
-                'lXtraGrid' : lXtraGrid,
+                'aXtraGrid' : np.array([.1,.5,1,2,3,4]),
+                'bXtraGrid' : np.array([.5,1,2,3]),
+                'lXtraGrid' : np.array([.5,.75,1,2,3]),
+                #'aXtraGrid' : aXtraGrid,
+                #'bXtraGrid' : bXtraGrid,
+                #'lXtraGrid' : lXtraGrid,
                 'vFuncBool' : True,
                 'CubicBool' : True
                 }
@@ -67,8 +67,8 @@ ex.prepareToSolve()
 ex.prepareToCalcEndOfPrdvAndvP()
 #EndOfPrdv,EndOfPrdvP = ex.calcEndOfPrdvAndvP()
 EndOfPrdv,EndOfPrdvP = ex.calcEndOfPrdvAndvP(ex.mNrmNext,ex.nNrmNext,ex.PermShkVals_temp,ex.ShkPrbs_temp,ex.Rfree_Mat)
-cNrm,lNrm,bNrm = ex.getPointsForPureConsumptionInterpolation(EndOfPrdv,EndOfPrdvP,ex.aNrmNow,ex.bNrmNow)
-ex.makePurecFunc(cNrm,lNrm,bNrm)
+cNrm,lNrm = ex.getPointsForPureConsumptionInterpolation(EndOfPrdv,EndOfPrdvP,ex.aNrmNow)
+ex.makePurecFunc(cNrm,lNrm,ex.bNrmNow)
 ex.makeEndOfPrdvFunc(EndOfPrdv)
 mystr = lambda number : "{:.4f}".format(number)
 start_time = time()

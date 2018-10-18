@@ -61,9 +61,9 @@ class ConsIRASolution(HARKobject):
     '''
     distance_criteria = ['cFunc','dFunc']
     
-    def __init__(self, cFunc=None, dFunc=None, vFunc=None,
-                       vPfunc=None, vPPfunc=None, mNrmMin=None, mNrmMin0=None,
-                       nNrmMin=None, hNrm=None, MPCmin=None, MPCmax=None):
+    def __init__(self, cFunc=None, dFunc=None, vFunc=None, vPfunc=None, 
+                 vPPfunc=None, mNrmMin=None, hNrm=None, MPCmin=None, 
+                 MPCmax=None):
         '''
         The constructor for a new ConsumerIRASolution object.
 
@@ -84,15 +84,9 @@ class ConsIRASolution(HARKobject):
             The beginning-of-period marginal marginal value function, with 
             respect to m, for this period, defined over liquiud market 
             resources and illiquid account balance: vPP = vPPfunc(m,n)
-        mNrmMin : function
-            The minimum allowable liquid market resources for this period; 
-            the consumption function (etc) are undefined for m < mNrmMin(n).
-        mNrmMin0 : float
+        mNrmMin : float
             The minimum allowable liquid market resources for this period,
             conditional on having zero illiquid assets
-        nNrmMin : float
-            The minimum allowable illiquid account balance for this period; 
-            the consumption function (etc) are undefined for n < nNrmMin.
         hNrm : float
             Human wealth after receiving income this period: PDV of all future
             income, ignoring mortality.
@@ -124,8 +118,6 @@ class ConsIRASolution(HARKobject):
         self.vPfunc       = vPfunc
         self.vPPfunc      = vPPfunc
         self.mNrmMin      = mNrmMin
-        self.mNrmMin0     = mNrmMin0
-        self.nNrmMin      = nNrmMin
         self.hNrm         = hNrm
         self.MPCmin       = MPCmin
         self.MPCmax       = MPCmax
@@ -137,7 +129,7 @@ class PureConsumptionFunc(HARKobject):
     LinearInterp. If b is not degenerate, uses interp2d. When l <
     l_min(b), returns c = 0.
     '''
-    distance_criteria = ['l_list','b_list','c_list']
+    distance_criteria = ['interpolator']
 
     def __init__(self,l_list,b_list,c_list,lMin,intercept_limit=None,
                  slope_limit=None):
@@ -214,7 +206,7 @@ class EndOfPeriodValueFunc(HARKobject):
     (a,b). If b is degenerate, uses LinearInterp. If b is not degenerate, uses 
     BilinearInterp.
     '''
-    distance_criteria = ['a_list','b_list','w_list']
+    distance_criteria = ['interpolator']
 
     def __init__(self,a_list,b_list,w_list,aMin,uFunc,intercept_limit=None,
                  slope_limit=None):
@@ -333,6 +325,10 @@ class ConsIRAPolicyFunc(HARKobject):
         self.cFuncPure = deepcopy(cFuncPure)
         self.output = output
         
+        self.m_list = m_list
+        self.n_list = n_list
+        self.d_list = d_list
+        
         if not self.nZero: # n grid is not degenerate
             self.dInterpolator = BilinearInterp(d_list,m_list,n_list)
 
@@ -380,7 +376,100 @@ class ConsIRAPolicyFunc(HARKobject):
             return c
         elif self.output == 'dFunc':
             return d        
-        
+
+class ValueFuncIRA(HARKobject):
+    '''
+    A class for representing a value function.  The underlying interpolation is
+    in the space of (m,n).
+    '''
+    distance_criteria = ['dfunc','PenIRA']
+
+    def __init__(self,dFunc,makeNegvOfdFunc,PenIRA):
+        '''
+        Constructor for a new value function object.
+
+        Parameters
+        ----------
+        dFunc : function
+            A real function representing optimal deposit/withdrawal n given m 
+            and n.
+        makevOfdFunc : function
+           Calculate beginning-of-period value function given d, m, and n.
+
+        Returns
+        -------
+        None
+        '''
+        self.dFunc = deepcopy(dFunc)
+        self.makeNegvOfdFunc = deepcopy(makeNegvOfdFunc)
+        self.PenIRA = PenIRA
+
+    def __call__(self,m,n):
+        '''
+        Evaluate the value function at given levels of liquid resources m and
+        illiquid resource n.
+
+        Parameters
+        ----------
+        m : float or np.array
+            Liquid market resources (normalized by permanent income).
+        n : flot or np.array
+            Illiquid market resources (normalized by permanent income)
+
+        Returns
+        -------
+        v : float or np.array
+            Lifetime value of beginning this period with liquid resources m and
+            illiquid resources n; has same size as m, n.
+        '''
+        return -self.makeNegvOfdFunc(self.dFunc(m,n),m,n)
+
+class MargValueFuncIRA(HARKobject):
+    '''
+    A class for representing a marginal value function in models where the
+    standard envelope condition of dv(m,n)/dm = u'(c(m,n)) holds (with CRRA 
+    utility)
+    '''
+    distance_criteria = ['cFunc','CRRA']
+
+    def __init__(self,cFunc,CRRA):
+        '''
+        Constructor for a new marginal value function object.
+
+        Parameters
+        ----------
+        cFunc : function
+            A real function representing the consumption function.
+        CRRA : float
+            Coefficient of relative risk aversion.
+
+        Returns
+        -------
+        None
+        '''
+        self.cFunc = deepcopy(cFunc)
+        self.CRRA = CRRA
+
+    def __call__(self,m,n):
+        '''
+        Evaluate the marginal value function at given levels of liquid 
+        resources m and illiquid resources n.
+
+        Parameters
+        ----------
+        m : float or np.array
+            Liquid market resources (normalized by permanent income).
+        n : flot or np.array
+            Illiquid market resources (normalized by permanent income)
+
+        Returns
+        -------
+        vP : float or np.array
+            Marginal lifetime value of beginning this period with liquid 
+            resources m and illiquid resources n; has same size as m, n.
+        '''
+        return utilityP(self.cFunc(m,n),gam=self.CRRA)
+
 class ConsIRASolver(ConsIndShockSolver):
     '''
     A class for solving a single period of a consumption-savings problem with
@@ -538,14 +627,14 @@ class ConsIRASolver(ConsIndShockSolver):
         
         # Calculate the minimum allowable value of money resources in this 
         # period, when b = 0
-        BoroCnstNat0 = ((self.solution_next.mNrmMin0 - self.TranShkMinNext)*
+        BoroCnstNat = ((self.solution_next.mNrmMin - self.TranShkMinNext)*
                            (self.PermGroFac*self.PermShkMinNext)/self.Rboro)
                            
         # Create natural borrowing constraint for different values of b
-        self.BoroCnstNata = BoroCnstNat0 - np.append([0],bPDVFactor*np.asarray(
+        self.BoroCnstNata = BoroCnstNat - np.append([0],bPDVFactor*np.asarray(
                         self.bXtraGrid))
         
-        self.BoroCnstNatn = BoroCnstNat0 - np.append([0],bPDVFactor_n*
+        self.BoroCnstNatn = BoroCnstNat - np.append([0],bPDVFactor_n*
                                                      np.asarray(self.bXtraGrid)
                                                      )
                            
@@ -554,15 +643,15 @@ class ConsIRASolver(ConsIndShockSolver):
         # However in Py3, this raises a TypeError. Thus here we need to 
         # directly address the situation in which BoroCnstArt == None:
         if BoroCnstArt is None:
-            self.mNrmMin0 = BoroCnstNat0
+            self.mNrmMin = BoroCnstNat
             self.aNrmMinb = self.BoroCnstNata
             self.mNrmMinn = self.BoroCnstNatn
         else:
-            self.mNrmMin0 = np.max([BoroCnstNat0,BoroCnstArt])
+            self.mNrmMin = np.max([BoroCnstNat,BoroCnstArt])
             self.aNrmMinb = np.maximum(BoroCnstArt,self.BoroCnstNata)
             self.mNrmMinn = np.maximum(BoroCnstArt,self.BoroCnstNatn)
             
-        if BoroCnstNat0 < self.mNrmMin0: 
+        if BoroCnstNat < self.mNrmMin: 
             self.MPCmaxEff = 1.0 # If actually constrained, MPC near limit is 1
         else:
             self.MPCmaxEff = self.MPCmaxNow
@@ -727,8 +816,8 @@ class ConsIRASolver(ConsIndShockSolver):
                                    ShkPrbs_temp,axis=sum_axis)
         return EndOfPrdv, EndOfPrdvP
 
-    def getPointsForPureConsumptionInterpolation(self,EndOfPrdv,
-                                                 EndOfPrdvP,aNrmNow,bNrmNow):
+    def getPointsForPureConsumptionInterpolation(self,EndOfPrdv,EndOfPrdvP,
+                                                 aNrmNow):
         '''
         Finds interpolation points (c,l,b) for the pure consumption function.
         Uses an upper envelope algorithm (Druedahl, 2018) to address potential
@@ -743,9 +832,6 @@ class ConsIRASolver(ConsIndShockSolver):
         aNrmNow : np.array
             Array of end-of-period asset values that yield the marginal values
             in EndOfPrdvP.
-        bNrmNow : np.array
-            Array of end-of-period illiquid asset values that yield the
-            marginal values in EndOfPrdvP.
         lXtraGrid : np.array
             Array of "extra" liquid assets just before the consumption decision
             -- assets above the abolute minimum acceptable level. 
@@ -753,14 +839,9 @@ class ConsIRASolver(ConsIndShockSolver):
         Returns
         -------
         c_for_interpolation : np.array
-            Consumption points for interpolation. A flattened array of size 
-            (lXtraGrid + 1) * bNrmNow.size.
+            Consumption points for interpolation.
         l_for_interpolation : np.array
-            Corresponding liquid market resource points for interpolation of
-            size (lXtraGrid + 1) * bNrmNow.size.
-        b_for_interpolation : np.array
-            Corresponding illiquid market resource points for interpolation of
-            size (lXtraGrid + 1) * bNrmNow.size.
+            Corresponding liquid market resource points for interpolation.
         '''
         cNrm_ik = self.uPinv(EndOfPrdvP)
         lNrm_ik = cNrm_ik + aNrmNow
@@ -814,9 +895,8 @@ class ConsIRASolver(ConsIndShockSolver):
             
         c_for_interpolation = np.transpose(np.array(cNrm_j_k))
         l_for_interpolation = lNrm_j
-        b_for_interpolation = bNrmNow
         
-        return c_for_interpolation, l_for_interpolation, b_for_interpolation
+        return c_for_interpolation, l_for_interpolation
     
     def makePurecFunc(self,cNrm,lNrm,bNrm):
         '''
@@ -908,7 +988,7 @@ class ConsIRASolver(ConsIndShockSolver):
                                                   self.BoroCnstFunc,self.u)
         self.aNrmNowUniform = aNrmNowUniform
         
-    def makevOfdFunc(self,dNrm,mNrm,nNrm):
+    def makeNegvOfdFunc(self,dNrm,mNrm,nNrm):
         '''
         Constructs a beginning-period value function, given the IRA deposit (d)
         , beginning-of-period liquid resources and beginning-of-period illiquid
@@ -917,16 +997,16 @@ class ConsIRASolver(ConsIndShockSolver):
         
         Parameters
         ----------
-        dNrm : float
+        dNrm : float or np.array
             (Normalized) IRA deposit/withdrawal this period.
-        mNrm : float
+        mNrm : float or np.array
             (Normalized) liquid assets at the beginning of this period.
-        nNrm : float
+        nNrm : float or np.array
             (Normalized) illiquid assets at the beginning of this period.
         
         Returns
         -------
-        v : float
+        v : float or np.array
             Negative 1 times the value function given d, m, and n.
         '''
         bNrm = nNrm + dNrm
@@ -937,10 +1017,9 @@ class ConsIRASolver(ConsIndShockSolver):
         aNrm = lNrm - cNrm
         
         # can't actually evaluate cNrm == 0
-        if not cNrm > 0.0:
-            cNrm = 0.0001
+        c_pos = np.where(np.asarray(cNrm)>0.0,cNrm,0.0001)
         
-        v = self.u(cNrm) + self.EndOfPrdvFunc(aNrm,bNrm)
+        v = self.u(c_pos) + self.EndOfPrdvFunc(aNrm,bNrm)
         
         return -v
     
@@ -961,7 +1040,7 @@ class ConsIRASolver(ConsIndShockSolver):
         d : float
             Value of d that maximizes v(d,m,n) given m and n.
         '''
-        d = basinhopping(self.makevOfdFunc,
+        d = basinhopping(self.makeNegvOfdFunc,
                          0,minimizer_kwargs={"bounds":((-nNrm + 1e-10,
                                                         self.MaxIRA),),
                                              "args":(mNrm,nNrm)}).x
@@ -1005,8 +1084,82 @@ class ConsIRASolver(ConsIndShockSolver):
                                               self.PenIRA,self.cFuncNowPure,
                                               output='dFunc')
     
+    def makeBasicSolution(self,EndOfPrdv,EndOfPrdvP,aNrm,bNrm):
+        '''
+        Given end of period assets and end of period marginal value, construct
+        the basic solution for this period.
 
+        Parameters
+        ----------
+        EndOfPrdvP : np.array
+            Array of end-of-period marginal values.
+        aNrm : np.array
+            Array of end-of-period liquid asset values.
+        bNrm : np.array
+            Array of end-of-period illiquid asset values.
+
+        Returns
+        -------
+        solution_now : ConsIRASolution
+            The solution to this period's consumption-saving problem, with a
+            consumption function, deposit function, value fucntion, marginal 
+            value function, and minimum m.
+        '''
+        cNrm,lNrm = self.getPointsForPureConsumptionInterpolation(EndOfPrdv,
+                                                                  EndOfPrdvP,
+                                                                  aNrm)
+        self.makePurecFunc(cNrm,lNrm,bNrm)
+        self.makeEndOfPrdvFunc(EndOfPrdv)
+        self.makecAnddFunc()
+        vFuncNow = ValueFuncIRA(self.dFuncNow,self.makeNegvOfdFunc,self.PenIRA)
+        vPfuncNow = MargValueFuncIRA(self.cFuncNow,self.CRRA)
+        solution_now = ConsIRASolution(cFunc = self.cFuncNow,
+                                       dFunc = self.dFuncNow, vFunc = vFuncNow,
+                                       vPfunc = vPfuncNow, 
+                                       mNrmMin = self.mNrmMin)
+        return solution_now
+    
+    def addMPCandHumanWealth(self,solution):
+        '''
+        Take a solution and add human wealth and the bounding MPCs to it.
+
+        Parameters
+        ----------
+        solution : ConsIRASolution
+            The solution to this period's consumption-saving problem.
+
+        Returns:
+        ----------
+        solution : ConsIRASolution
+            The solution to this period's consumption-saving problem, but now
+            with human wealth and the bounding MPCs.
+        '''
+        solution.hNrm   = self.hNrmNow
+        solution.MPCmin = self.MPCminNow
+        solution.MPCmax = self.MPCmaxEff
+        return solution
         
-        
-            
+    def solve(self):
+        '''
+        Solves a one period consumption saving problem with liquid and illiquid
+        assets.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        solution : ConsIRASolution
+            The solution to the one period problem.
+        '''
+        aNrm,bNrm = self.prepareToCalcEndOfPrdvP()
+        EndOfPrdv,EndOfPrdvP = self.calcEndOfPrdvAndvP(self.mNrmNext,
+                                                        self.nNrmNext,
+                                                        self.PermShkVals_temp,
+                                                        self.ShkPrbs_temp,
+                                                        self.Rfree_Mat)
+        solution = self.makeBasicSolution(EndOfPrdv,EndOfPrdvP,aNrm,bNrm)
+        solution   = self.addMPCandHumanWealth(solution)
+        return solution
         
