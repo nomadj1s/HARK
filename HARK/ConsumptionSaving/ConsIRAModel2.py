@@ -6,7 +6,10 @@ expires. All models here assume CRRA utility with geometric discounting, no
 bequest motive, and income shocks are fully transitory or fully permanent. The
 model incorporates a different interest rate for saving and borrowing in the
 liquid account, and a separate interest rate for saving in the illiquid
-account, with a cap on deposits into the illiquid account.
+account, with a cap on deposits into the illiquid account. Consumption function
+is solved for using the Nested Endogenous Grid Method (Druedahl, 2018). When
+grid for illiquid asset is set to a degenerate value of zero, returns standard
+consumption function.
 '''
 
 from __future__ import division
@@ -732,6 +735,7 @@ class ConsIRASolver(ConsIndShockSolver):
         # If bXtragrid = [], remove unnecessary dimension from arrays
         if np.asarray(self.bXtraGrid).size == 0:
             aNrmNow           = aNrmNow[0]
+            bNrmNow           = bNrmNow[0]
             mNrmNext          = mNrmNext[0]
             nNrmNext          = nNrmNext[0]
             PermShkVals_temp  = PermShkVals_temp[0]
@@ -851,9 +855,13 @@ class ConsIRASolver(ConsIndShockSolver):
         # b-specific grids
         lNrm_jk = np.tile(np.insert(np.asarray(self.lXtraGrid),0,0.0),
                           (self.bNrmCount,1)) + np.transpose([self.aNrmMinb])
-        lNrm_jk_Xtra = [lNrm_jk[i][lNrm_jk[i] < np.min(lNrm_jk[i-1])] for i in
-                                range(1,len(lNrm_jk))]
-        lNrm_j = np.sort(np.append(lNrm_jk[0],np.hstack(lNrm_jk_Xtra)))
+        
+        if self.bNrmCount == 1:
+            lNrm_j = lNrm_jk[0]
+        else:
+            lNrm_jk_Xtra = [lNrm_jk[i][lNrm_jk[i] < np.min(lNrm_jk[i-1])] 
+                            for i in range(1,len(lNrm_jk))]
+            lNrm_j = np.sort(np.append(lNrm_jk[0],np.hstack(lNrm_jk_Xtra)))
         
         lNrmCount = lNrm_j.size
         
@@ -892,8 +900,12 @@ class ConsIRASolver(ConsIndShockSolver):
         
         cNrm_j_k = [[c[np.argmax(v)] if c.size > 0 else 0 for c,v in 
                     zip(ci,vi)] for ci,vi in zip(cNrm_j_ik,v_j_ik)]
-            
-        c_for_interpolation = np.transpose(np.array(cNrm_j_k))
+        
+        if self.bNrmCount == 1:
+            c_for_interpolation = np.array(cNrm_j_k)[0]
+        else:
+            c_for_interpolation = np.transpose(np.array(cNrm_j_k))
+        
         l_for_interpolation = lNrm_j
         
         return c_for_interpolation, l_for_interpolation
@@ -939,54 +951,61 @@ class ConsIRASolver(ConsIndShockSolver):
         -------
         none
         '''
-        aNrmNow_Xtra = [self.aNrmNow[i][self.aNrmNow[i] < 
+        if self.bNrmCount == 1:
+            self.EndOfPrdvFunc = EndOfPeriodValueFunc(self.aNrmNow,
+                                                      self.bNrmNow,EndOfPrdv,
+                                                      self.BoroCnstFunc,self.u)
+            self.aNrmNowUniform = self.aNrmNow
+        else:
+            aNrmNow_Xtra = [self.aNrmNow[i][self.aNrmNow[i] < 
                                      np.min(self.aNrmNow[i-1])] for i in
                                 range(1,len(self.aNrmNow))]
-        aNrmNowUniform = np.sort(np.append(self.aNrmNow[0],
+            aNrmNowUniform = np.sort(np.append(self.aNrmNow[0],
                                              np.hstack(aNrmNow_Xtra)))
-        aNrm = np.tile(aNrmNowUniform,(self.bNrmCount,1))
-        aNrmCount = aNrmNowUniform.size
+            aNrm = np.tile(aNrmNowUniform,(self.bNrmCount,1))
+            aNrmCount = aNrmNowUniform.size
         
         
-        aNrm_temp = np.transpose(np.tile(aNrm,(self.ShkCount,1,1)),(1,0,2))
-        bNrm_temp = np.transpose(np.tile(self.bNrmNow[:,None],
-                                           (aNrmCount,1,
-                                            self.ShkCount)),(1,2,0))
+            aNrm_temp = np.transpose(np.tile(aNrm,(self.ShkCount,1,1)),(1,0,2))
+            bNrm_temp = np.transpose(np.tile(self.bNrmNow[:,None],
+                                             (aNrmCount,1,
+                                              self.ShkCount)),(1,2,0))
         
-        # Tile arrays of the income shocks and put them into useful shapes
-        PermShkVals_temp  = np.transpose(np.tile(self.PermShkValsNext,
+            # Tile arrays of the income shocks and put them into useful shapes
+            PermShkVals_temp  = np.transpose(np.tile(self.PermShkValsNext,
                                                  (self.bNrmCount,aNrmCount,1)),
                                                                     (0,2,1))
-        TranShkVals_temp  = np.transpose(np.tile(self.TranShkValsNext,
+            TranShkVals_temp  = np.transpose(np.tile(self.TranShkValsNext,
                                                  (self.bNrmCount,aNrmCount,1)),
                                                                     (0,2,1))
-        ShkPrbs_temp      = np.transpose(np.tile(self.ShkPrbsNext,
+            ShkPrbs_temp      = np.transpose(np.tile(self.ShkPrbsNext,
                                                  (self.bNrmCount,aNrmCount,1)),
                                                                     (0,2,1))
         
-        # Make a 2D array of the interest factor at each asset gridpoint
-        Rfree_Mat = self.Rsave*np.ones(aNrm.shape)
-        if self.KinkBool:
-            Rfree_Mat[aNrm < 0] = self.Rboro
+            # Make a 2D array of the interest factor at each asset gridpoint
+            Rfree_Mat = self.Rsave*np.ones(aNrm.shape)
+            if self.KinkBool:
+                Rfree_Mat[aNrm < 0] = self.Rboro
         
-        # Get liquid assets next period
-        mNrmNext   = Rfree_Mat[:, None]/(self.PermGroFac*
+            # Get liquid assets next period
+            mNrmNext   = Rfree_Mat[:, None]/(self.PermGroFac*
                               PermShkVals_temp)*aNrm_temp + TranShkVals_temp
                             
-        # Get illiquid assets nex period
-        nNrmNext   = self.Rira/(self.PermGroFac*PermShkVals_temp)*bNrm_temp
+            # Get illiquid assets nex period
+            nNrmNext   = self.Rira/(self.PermGroFac*PermShkVals_temp)*bNrm_temp
         
-        # Calculate end of period value functions
-        EndOfPrdvUniform, _ = self.calcEndOfPrdvAndvP(mNrmNext,nNrmNext,
+            # Calculate end of period value functions
+            EndOfPrdvUniform, _ = self.calcEndOfPrdvAndvP(mNrmNext,nNrmNext,
                                                PermShkVals_temp,ShkPrbs_temp,
                                                Rfree_Mat)
         
-        EndOfPrdv_trans = np.transpose(EndOfPrdvUniform)
+            EndOfPrdv_trans = np.transpose(EndOfPrdvUniform)
         
-        self.EndOfPrdvFunc = EndOfPeriodValueFunc(aNrmNowUniform,self.bNrmNow,
+            self.EndOfPrdvFunc = EndOfPeriodValueFunc(aNrmNowUniform,
+                                                      self.bNrmNow,
                                                   EndOfPrdv_trans,
                                                   self.BoroCnstFunc,self.u)
-        self.aNrmNowUniform = aNrmNowUniform
+            self.aNrmNowUniform = aNrmNowUniform
         
     def makeNegvOfdFunc(self,dNrm,mNrm,nNrm):
         '''

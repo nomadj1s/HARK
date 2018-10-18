@@ -24,8 +24,8 @@ vFunc = vFunc_terminal
 vPfunc = vPfunc_terminal
 
 solution_terminal = ConsIRASolution(cFunc=cFunc,dFunc=dFunc,vFunc=vFunc,
-                                vPfunc=vPfunc,mNrmMin=0.0,mNrmMin0=0.0,
-                                nNrmMin=0.0,hNrm=0.0,MPCmin=1,MPCmax=1)
+                                vPfunc=vPfunc,mNrmMin=0.0,hNrm=0.0,MPCmin=1,
+                                MPCmax=1)
 
 IncomeDstn = np.array([[.25,.25,.25,.25],[.9,.9,1.1,1.1],[.8,1.2,.8,1.2]])
 
@@ -53,7 +53,8 @@ ira_params = { 'solution_next' : solution_terminal,
                 'PermGroFac' : 1.1,
                 'BoroCnstArt' : None,
                 'aXtraGrid' : np.array([.1,.5,1,2,3,4]),
-                'bXtraGrid' : np.array([.5,1,2,3]),
+                #'bXtraGrid' : np.array([.5,1,2,3]),
+                'bXtraGrid' : np.array([]),
                 'lXtraGrid' : np.array([.5,.75,1,2,3]),
                 #'aXtraGrid' : aXtraGrid,
                 #'bXtraGrid' : bXtraGrid,
@@ -106,13 +107,13 @@ def makedFuncn(m):
     return dn
 
 print('Consumption function for different values of n')
-plotFuncs([makecFuncm(n) for n in [0,1,2,3,4]],ex.mNrmMin0,
-           ex.mNrmMin0 + 10,
+plotFuncs([makecFuncm(n) for n in [0,1,2,3,4]],ex.mNrmMin,
+           ex.mNrmMin + 10,
            legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2,3,4]]})
 
 print('Deposit function for different values of n')
-plotFuncs([makedFuncm(n) for n in [0,1,2,3,4]],ex.mNrmMin0,
-           ex.mNrmMin0 + 10,
+plotFuncs([makedFuncm(n) for n in [0,1,2,3,4]],ex.mNrmMin,
+           ex.mNrmMin + 10,
            legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2,3,4]]})
 
 print('Consumption function of n for different values of m')
