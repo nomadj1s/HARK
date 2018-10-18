@@ -1,7 +1,7 @@
 '''
 Classes to solve consumption-savings models with two types of savings accounts:
 a liquid savings account and an IRA-like illiquid account. The illiquid account
-may become liquid after a certain age, i.e.the early-withdrawal penaly
+may become liquid after a certain age, i.e. the early-withdrawal penalty
 expires. All models here assume CRRA utility with geometric discounting, no
 bequest motive, and income shocks are fully transitory or fully permanent. The
 model incorporates a different interest rate for saving and borrowing in the
