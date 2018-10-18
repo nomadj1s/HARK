@@ -1162,4 +1162,84 @@ class ConsIRASolver(ConsIndShockSolver):
         solution = self.makeBasicSolution(EndOfPrdv,EndOfPrdvP,aNrm,bNrm)
         solution   = self.addMPCandHumanWealth(solution)
         return solution
-        
+
+def solveConsIRA(solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,Rsave,Rira,
+                 PenIRA,MaxIRA,DistIRA,PermGroFac,BoroCnstArt,aXtraGrid,
+                 bXtraGrid,lXtraGrid,vFuncBool,CubicBool):
+    '''
+    Solves a single period consumption-saving problem with CRRA utility and 
+    risky income (subject to permanent and transitory shocks), with liquid and
+    illiquid assets.
+
+    Parameters
+        ----------
+        solution_next : ConsumerSolution
+            The solution to next period's one period problem.
+        IncomeDstn : [np.array]
+            A list containing three arrays of floats, representing a discrete
+            approximation to the income process between the period being solved
+            and the one immediately following (in solution_next). Order: event
+            probabilities, permanent shocks, transitory shocks.
+        LivPrb : float
+            Survival probability; likelihood of being alive at the beginning of
+            the succeeding period.
+        DiscFac : float
+            Intertemporal discount factor for future utility.
+        CRRA : float
+            Coefficient of relative risk aversion.
+        Rboro: float
+            Interest factor on liquid assets between this period and the 
+            succeeding period when assets are negative.
+        Rsave: float
+            Interest factor on liquid assets between this period and the 
+            succeeding period when assets are positive.
+        Rira:  float
+            Interest factor on illiquid assets between this period and the 
+            succeeding period.
+        PenIRA: float
+            Penalty for early withdrawals (d < 0) from the illiqui account, 
+            i.e. before t = T_ira.
+        MaxIRA: float
+            Maximum allowable IRA deposit, d <= MaxIRA
+        DistIRA: float
+            Number of periods between current period and T_ira, i.e. T_ira - t
+        PermGroFac : float
+            Expected permanent income growth factor at the end of this period.
+        BoroCnstArt: float or None
+            Borrowing constraint for the minimum allowable assets to end the
+            period with.  If it is less than the natural borrowing constraint,
+            then it is irrelevant; BoroCnstArt=None indicates no artificial 
+            borrowing constraint.
+        aXtraGrid: np.array
+            Array of "extra" end-of-period liquid asset values-- assets above 
+            the absolute minimum acceptable level.
+        bXtraGrid: np.array
+            Array of "extra" end-of-period illiquid asset values-- assets above 
+            the absolute minimum acceptable level.
+        lXtraGrid: np.array
+            Array of "extra" liquid assets just before the consumption decision
+            -- assets above the abolute minimum acceptable level.
+        vFuncBool: boolean
+            An indicator for whether the value function should be computed and
+            included in the reported solution.
+        CubicBool: boolean
+            An indicator for whether the solver should use cubic or linear 
+            interpolation.
+
+    Returns
+    -------
+    solution_now : ConsIRASolution
+        The solution to the single period consumption-saving problem with
+        liquid and illiquid assets.  Includes a consumption function cFunc, 
+        deposit function dFunc, a value function vFunc, a marginal, value 
+        function vPfunc, a minimum acceptable level of liquid resources given 
+        zero illiquid resources mNrmMin, normalized human wealth hNrm, and 
+        bounding MPCs MPCmin and MPCmax.
+    '''
+    solver = ConsIRASolver(solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,
+                           Rsave,Rira,PenIRA,MaxIRA,DistIRA,PermGroFac,
+                           BoroCnstArt,aXtraGrid,bXtraGrid,lXtraGrid,vFuncBool,
+                           CubicBool)
+    solver.prepareToSolve()       # Do some preparatory work
+    solution_now = solver.solve() # Solve the period
+    return solution_now
