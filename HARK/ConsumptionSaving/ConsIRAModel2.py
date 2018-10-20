@@ -1262,3 +1262,43 @@ def solveConsIRA(solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,Rsave,Rira,
     solver.prepareToSolve()       # Do some preparatory work
     solution_now = solver.solve() # Solve the period
     return solution_now
+
+class IRAConsumerType(IndShockConsumerType):
+    '''
+    A consumer type that faces idiosyncratic shocks to income and has a liquid
+    and illiquid savings account, with different interest factors on saving vs 
+    borrowing in the liquid account, and a different interest factor on the
+    illiquid account.  Extends IndShockConsumerType, but uses a different
+    solution concept, the Nested Endogenous Grid Method (NEGM). Solver for this 
+    class is currently only compatible with linear spline interpolation.
+    '''
+    time_inv_ = copy(IndShockConsumerType.time_inv_)
+    time_inv_.remove('Rfree')
+    time_inv_ += ['Rboro', 'Rsave','Rira','MaxIRA']
+    
+    time_vary_ = IndShockConsumerType.time_vary_ + ['',]
+    
+
+    def __init__(self,cycles=1,time_flow=True,**kwds):
+        '''
+        Instantiate a new ConsumerType with given data.
+        See ConsumerParameters.init_kinked_R for a dictionary of
+        the keywords that should be passed to the constructor.
+
+        Parameters
+        ----------
+        cycles : int
+            Number of times the sequence of periods should be solved.
+        time_flow : boolean
+            Whether time is currently "flowing" forward for this instance.
+
+        Returns
+        -------
+        None
+        '''
+        # Initialize a basic AgentType
+        PerfForesightConsumerType.__init__(self,cycles=cycles,time_flow=time_flow,**kwds)
+
+        # Add consumer-type specific objects, copying to create independent versions
+        self.solveOnePeriod = solveConsKinkedR # kinked R solver
+        self.update() # Make assets grid, income process, terminal solution
