@@ -65,7 +65,7 @@ class ConsIRASolution(HARKobject):
     '''
     distance_criteria = ['cFunc','dFunc']
     
-    def __init__(self, cFunc=None, dFunc=None, cAnddFunc = None, vFunc=None, 
+    def __init__(self, cFunc=None, dFunc=None, policyFunc = None, vFunc=None, 
                  vPfunc=None, vPPfunc=None, mNrmMin=None, hNrm=None, 
                  MPCmin=None, MPCmax=None):
         '''
@@ -80,7 +80,7 @@ class ConsIRASolution(HARKobject):
             The optimal deposit/withdrawal function for this period, defined 
             over liquiud market resources and illiquid account balance: d = 
             dFunc(m,n).
-        cAnddFunc : function
+        policyFunc : function
             Returns both the consumption and deposit functions in one
             calculation.
         vFunc : function
@@ -117,8 +117,8 @@ class ConsIRASolution(HARKobject):
             cFunc = NullFunc()
         if dFunc is None:
             dFunc = NullFunc()
-        if cAnddFunc is None:
-            cAnddFunc = NullFunc()
+        if policyFunc is None:
+            policyFunc = NullFunc()
         if vFunc is None:
             vFunc = NullFunc()
         if vPfunc is None:
@@ -127,7 +127,7 @@ class ConsIRASolution(HARKobject):
             vPPfunc = NullFunc()
         self.cFunc        = cFunc
         self.dFunc        = dFunc
-        self.cAnddFunc    = cAnddFunc
+        self.policyFunc   = policyFunc
         self.vFunc        = vFunc
         self.vPfunc       = vPfunc
         self.vPPfunc      = vPPfunc
@@ -302,6 +302,7 @@ class ConsIRAPolicyFunc(HARKobject):
         l = m - (1-t(d))*d
         b = n + d
         c = c(l,b)
+        
     '''
     distance_criteria = ['m_list','n_list','d_list','cFuncPure']
 
@@ -1129,7 +1130,7 @@ class ConsIRASolver(ConsIndShockSolver):
         
         return d
         
-    def makecAnddFunc(self):
+    def makePolicyFunc(self):
         '''
         Makes the optimal IRA deposit/withdrawal function for this period and
         optimal consumption function for this period.
@@ -1167,7 +1168,7 @@ class ConsIRASolver(ConsIndShockSolver):
             self.dFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm_trans,self.MaxIRA,
                                               self.PenIRA,self.cFuncNowPure,
                                               output='dFunc')
-            self.cAnddFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm_trans,
+            self.policyFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm_trans,
                                                   self.MaxIRA,self.PenIRA,
                                                   self.cFuncNowPure,
                                                   output='both')
@@ -1198,12 +1199,12 @@ class ConsIRASolver(ConsIndShockSolver):
                                                                   aNrm)
         self.makePurecFunc(cNrm,lNrm,bNrm)
         self.makeEndOfPrdvFunc(EndOfPrdv)
-        self.makecAnddFunc()
+        self.makePolicyFunc()
         vFuncNow = ValueFuncIRA(self.dFuncNow,self.makeNegvOfdFunc,self.PenIRA)
         vPfuncNow = MargValueFuncIRA(self.cFuncNow,self.CRRA)
         solution_now = ConsIRASolution(cFunc = self.cFuncNow,
                                        dFunc = self.dFuncNow, 
-                                       cAnddFunc = self.cAnddFuncNow,
+                                       policyFunc = self.policyFuncNow,
                                        vFunc = vFuncNow,
                                        vPfunc = vPfuncNow, 
                                        mNrmMin = self.mNrmMin)
@@ -1347,17 +1348,17 @@ class IRAConsumerType(IndShockConsumerType):
                                      np.array([0.0,1.0]),np.array([0.0,1.0]))
     dFunc_terminal_ = BilinearInterp(np.array([[0.0,-1.0],[0.0,-1.0]]),
                                      np.array([0.0,1.0]),np.array([0.0,1.0]))
-    cAnddFunc_terminal_ = MultiValuedFunc(cFunc_terminal_,dFunc_terminal_)
+    policyFunc_terminal_ = MultiValuedFunc(cFunc_terminal_,dFunc_terminal_)
     solution_terminal = ConsIRASolution(cFunc = cFunc_terminal_,
                                         dFunc = dFunc_terminal_,
-                                        cAnddFunc = cAnddFunc_terminal_,
+                                        policyFunc = policyFunc_terminal_,
                                         mNrmMin=0.0,hNrm=0.0,MPCmin=1,MPCmax=1)
     
     time_inv_ = copy(IndShockConsumerType.time_inv_)
     time_inv_.remove('Rfree')
     time_inv_ += ['Rboro', 'Rsave','Rira','MaxIRA']
     
-    time_vary_ = IndShockConsumerType.time_vary_ + ['PenIRA','DistIRA']
+    time_vary_ = IndShockConsumerType.time_vary_
     
     poststate_vars_ = ['aNrmNow','bNrmNow','pLvlNow']
     
@@ -1414,7 +1415,7 @@ class IRAConsumerType(IndShockConsumerType):
                                              np.array([0.0,1.0]),
                                              np.array([0.0,1.0]))
         self.solution_terminal.cFunc = cFunc_terminal_
-        self.solution_terminal.cAnddFunc = MultiValuedFunc(cFunc_terminal_,
+        self.solution_terminal.policyFunc = MultiValuedFunc(cFunc_terminal_,
                                                            self.dFunc_terminal_
                                                            )
         self.solution_terminal.vFunc   = ValueFunc2D(cFunc_terminal_,
@@ -1501,6 +1502,7 @@ class IRAConsumerType(IndShockConsumerType):
             self.DistrIRA = self.T_cycle*[None]
         self.addToTimeVary('PenIRA','DistIRA')
         
+                                       
     def getRfree(self):
         '''
         Returns an array of size self.AgentCount with self.Rboro or self.Rsave 
@@ -1520,15 +1522,179 @@ class IRAConsumerType(IndShockConsumerType):
         RfreeNow[self.aNrmNow > 0] = self.Rsave
         return RfreeNow
     
+    def getRill(self):
+        '''
+        Returns an array of size self.AgentCount with self.Rira in each entry.
+        
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        RillNow : np.array
+             Array of size self.AgentCount with illiquid asset return factor
+             for each agent.
+        '''
+        RillNow = self.Rira*np.ones(self.AgentCount)
+        return RillNow
+        
+    def getStates(self):
+        '''
+        Calculates updated values of normalized liquid and illiquid market 
+        resources and permanent income level for each agent.  Uses pLvlNow, 
+        aNrmNow, bNrmNow, PermShkNow, TranShkNow.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        '''
+        pLvlPrev = self.pLvlNow
+        aNrmPrev = self.aNrmNow
+        bNrmPrev = self.bNrmNow
+        RfreeNow = self.getRfree()
+        RillNow = self.getRill()
+
+        # Calculate new states: normalized liquid and illiquid market 
+        # resources and permanent income level
+        self.pLvlNow = pLvlPrev*self.PermShkNow # Updated permanent income 
+                                                # level
+        self.PlvlAggNow = self.PlvlAggNow*self.PermShkAggNow # Updated 
+                                                             # aggregate 
+                                                             # permanent 
+                                                             # productivity 
+                                                             # level
+        ReffNow = RfreeNow/self.PermShkNow # "Effective" interest factor on 
+                                           # normalized liquid assets
+        self.mNrmNow = ReffNow*aNrmPrev + self.TranShkNow # Liquid Market 
+                                                          # resources after 
+                                                          # income
+        ReffIllNow = RillNow/self.PermShkNow # "Effective" interest factor on 
+                                             # normalized illiquid assets
+        self.nNrmNow = ReffIllNow*bNrmPrev
+        
+    def getControls(self):
+        '''
+        Calculates consumption and deposit/withdrawal for each consumer of this 
+        type using the consumption and deposit/withdrawal functions.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        '''
+        cNrmNow = np.zeros(self.AgentCount) + np.nan
+        dNrmNow = np.zeros(self.AgentCount) + np.nan
+        for t in range(self.T_cycle):
+            these = t == self.t_cycle
+            cNrmNow[these], dNrmNow[these] = self.solution[t].policyFunc(
+                                                           self.mNrmNow[these],
+                                                           self.nNrmNow[these])
+        self.cNrmNow = cNrmNow
+        self.cLvlNow = cNrmNow*self.pLvlNow
+        self.dNrmNow = dNrmNow
+        self.dLvlNow = dNrmNow*self.pLvlNow
+        return None
     
+    def getPostStates(self):
+        '''
+        Calculates end-of-period liquid and illiquid assets for each consumer 
+        of this type.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        '''
+        lNrmNow = np.zeros(self.AgentCount) + np.nan
+        for t in range(self.T_cycle):
+            these = t == self.t_cycle
+            lNrmNow[these] = self.mNrmNow[these] - \
+                                  (1 - self.PenIRA[t]*\
+                                  (self.dNrmNow[these] < 0))*\
+                                  self.dNrmNow[these]
+        
+        self.aNrmNow = lNrmNow - self.cNrmNow
+        self.aLvlNow = self.aNrmNow*self.pLvlNow   # Useful in some cases to 
+                                                   # precalculate asset level
+        
+        self.bNrmNow = self.nNrmNow + self.dNrmNow
+        self.bLvlNow = self.bNrmNow*self.pLvlNow
+        return None
+    
+    def unpackdFunc(self):
+        '''
+        "Unpacks" the deposit/withdrawal functions into their own field for 
+        easier access. After the model has been solved, the deposit functions 
+        reside in the attribute dFunc of each element of ConsumerType.solution.  
+        This method creates a (time varying) attribute dFunc that contains a 
+        list of deposit functions.
+
+        Parameters
+        ----------
+        none
+
+        Returns
+        -------
+        none
+        '''
+        self.dFunc = []
+        for solution_t in self.solution:
+            self.dFunc.append(solution_t.dFunc)
+        self.addToTimeVary('dFunc')
+        
+    def simBirth(self,which_agents):
+        '''
+        Makes new consumers for the given indices. Initialized variables 
+        include aNrm, bNrm, and pLvl, as well as time variables t_age and 
+        t_cycle.  Normalized assets and persistent income levels are drawn from 
+        lognormal distributions given by aNrmInitMean and aNrmInitStd (etc).
+
+        Parameters
+        ----------
+        which_agents : np.array(Bool)
+            Boolean array of size self.AgentCount indicating which agents 
+            should be "born".
+
+        Returns
+        -------
+        None
+        '''
+        # Get and store states for newly born agents
+        N = np.sum(which_agents) # Number of new consumers to make
+        self.aNrmNow[which_agents] = drawLognormal(N,mu=self.aNrmInitMean,
+                                                   sigma=self.aNrmInitStd,
+                                                   seed=
+                                                   self.RNG.randint(0,2**31-1))
+        # Account for newer cohorts having higher permanent income
+        pLvlInitMeanNow = self.pLvlInitMean + np.log(self.PlvlAggNow) 
+        self.pLvlNow[which_agents] = drawLognormal(N,mu=pLvlInitMeanNow,
+                                                   sigma=self.pLvlInitStd,
+                                                   seed=
+                                                   self.RNG.randint(0,2**31-1))
+        self.bNrmNow[which_agents] = 0.0
+        self.t_age[which_agents]   = 0 # How many periods since each agent was 
+                                       # born
+        self.t_cycle[which_agents] = 0 # Which period of the cycle each agent 
+                                       # is currently in
         
     def makeEulerErrorFunc(self,mMax=100,approx_inc_dstn=True):
         '''
         Creates a "normalized Euler error" function for this instance, mapping
         from market resources to "consumption error per dollar of consumption."
         Stores result in attribute eulerErrorFunc as an interpolated function.
-        Has option to use approximate income distribution stored in self.IncomeDstn
-        or to use a (temporary) very dense approximation.
+        Has option to use approximate income distribution stored in 
+        self.IncomeDstn or to use a (temporary) very dense approximation.
 
         NOT YET IMPLEMENTED FOR THIS CLASS
 
@@ -1537,10 +1703,11 @@ class IRAConsumerType(IndShockConsumerType):
         mMax : float
             Maximum normalized market resources for the Euler error function.
         approx_inc_dstn : Boolean
-            Indicator for whether to use the approximate discrete income distri-
-            bution stored in self.IncomeDstn[0], or to use a very accurate
-            discrete approximation instead.  When True, uses approximation in
-            IncomeDstn; when False, makes and uses a very dense approximation.
+            Indicator for whether to use the approximate discrete income 
+            distribution stored in self.IncomeDstn[0], or to use a very 
+            accurate discrete approximation instead.  When True, uses 
+            approximation in IncomeDstn; when False, makes and uses a very 
+            dense approximation.
 
         Returns
         -------
@@ -1576,5 +1743,15 @@ class IRAConsumerType(IndShockConsumerType):
         None
         '''
         raise NotImplementedError()
+        
+###############################################################################
+
+def main():
+    import ConsumerParameters as Params
+    from utilities import plotFuncsDer, plotFuncs
+    from time import clock
+    mystr = lambda number : "{:.4f}".format(number)
+
+    do_simulation           = True
     
         
