@@ -34,8 +34,9 @@ sys.path.insert(0, os.path.abspath('./'))
 from core import AgentType, NullFunc, HARKobject
 from interpolation import CubicInterp, LowerEnvelope, LinearInterp,\
                            BilinearInterp, ConstantFunction
-from ConsIndShockModel import ConsumerSolution, ConsIndShockSolver, \
-                                constructAssetsGrid
+from ConsIndShockModel import ConsIndShockSolver, constructAssetsGrid,\
+                              IndShockConsumerType
+from ConsGenIncProcessModel import ValueFunc2D
 from simulation import drawDiscrete, drawBernoulli, drawLognormal, drawUniform
 from utilities import approxMeanOneLognormal, addDiscreteOutcomeConstantMean,\
                            combineIndepDstns, makeGridExpMult, CRRAutility, \
@@ -1272,18 +1273,28 @@ class IRAConsumerType(IndShockConsumerType):
     solution concept, the Nested Endogenous Grid Method (NEGM). Solver for this 
     class is currently only compatible with linear spline interpolation.
     '''
+    cFunc_terminal_ = BilinearInterp(np.array([[0.0,1.0],[1.0,2.0]]),
+                                     np.array([0.0,1.0]),np.array([0.0,1.0]))
+    dFunc_terminal_ = BilinearInterp(np.array([[0.0,-1.0],[0.0,-1.0]]),
+                                     np.array([0.0,1.0]),np.array([0.0,1.0]))
+    solution_terminal = ConsIRASolution(cFunc = cFunc_terminal_,
+                                        dFunc = dFunc_terminal_,
+                                        mNrmMin=0.0,hNrm=0.0,MPCmin=1,MPCmax=1)
+    
     time_inv_ = copy(IndShockConsumerType.time_inv_)
     time_inv_.remove('Rfree')
     time_inv_ += ['Rboro', 'Rsave','Rira','MaxIRA']
     
-    time_vary_ = IndShockConsumerType.time_vary_ + ['',]
+    time_vary_ = IndShockConsumerType.time_vary_ + ['PenIRA','DistIRA']
+    
+    poststate_vars_ = ['aNrmNow','bNrmNow','pLvlNow']
     
 
     def __init__(self,cycles=1,time_flow=True,**kwds):
         '''
-        Instantiate a new ConsumerType with given data.
-        See ConsumerParameters.init_kinked_R for a dictionary of
-        the keywords that should be passed to the constructor.
+        Instantiate a new ConsumerType with given data. See 
+        ConsumerParameters.init_IRA for a dictionary of the keywords that 
+        should be passed to the constructor.
 
         Parameters
         ----------
@@ -1297,8 +1308,89 @@ class IRAConsumerType(IndShockConsumerType):
         None
         '''
         # Initialize a basic AgentType
-        PerfForesightConsumerType.__init__(self,cycles=cycles,time_flow=time_flow,**kwds)
+        IndShockConsumerType.__init__(self,cycles=cycles,time_flow=time_flow
+                                      ,**kwds)
 
-        # Add consumer-type specific objects, copying to create independent versions
-        self.solveOnePeriod = solveConsKinkedR # kinked R solver
-        self.update() # Make assets grid, income process, terminal solution
+        # Add consumer-type specific objects, copying to create independent 
+        # versions
+        self.solveOnePeriod = solveConsIRA # IRA solver
+        self.update() # Make assets grid, income process, terminal solution,
+                      # PenIRA, and DistIRA
+                      
+    def updateSolutionTerminal(self):
+        '''
+        Update the terminal period solution.  This method should be run when a
+        new AgentType is created or when CRRA changes.
+
+        Parameters
+        ----------
+        none
+
+        Returns
+        -------
+        none
+        '''
+        self.solution_terminal.vFunc   = ValueFunc2D(self.cFunc_terminal_,
+                                                     self.CRRA)
+        self.solution_terminal.vPfunc  = MargValueFuncIRA(self.cFunc_terminal_,
+                                                          self.CRRA)
+        
+    def update(self):
+        '''
+        Update the income process, the assets grids, the IRA penalty, distance
+        to IRA penalty expiration, and the terminal solution.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        '''
+        IndShockConsumerType.update(self)
+        self.updatelgrid()
+        self.updatebgrid()
+        self.updateIRA()
+        
+    def updatelgrid(self):
+        '''
+        Update the grid for l, assets net of deposits/withdrawals.
+        
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        '''
+        self.lXtraGrid = self.aXtraGrid
+        self.addToTimeInv('lXtraGrid')
+        
+    def updatebgrid(self):
+        '''
+        Update the grid for b, illiquid assets.
+        
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        '''
+        if self.bXtraCount == 0:
+            self.bXtraGrid = np.array([])
+        else:
+            bgrid = HARKobject
+            bgrid.aXtraMin = self.bXtraMin
+            bgrid.aXtraMax = self.bXtraMax
+            bgrid.aXtraCount = self.bXtraCount
+            bgrid.aXtraNestFac = self.bXtraNestFac
+            bgrid.aXtraExtra = np.array([None])
+            self.bXtraGrid = constructAssetsGrid(bgrid)
+        self.addToTimeInv('bXtraGrid')
+        
+    def 
+        
