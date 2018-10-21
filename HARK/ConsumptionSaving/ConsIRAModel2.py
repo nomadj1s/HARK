@@ -65,9 +65,9 @@ class ConsIRASolution(HARKobject):
     '''
     distance_criteria = ['cFunc','dFunc']
     
-    def __init__(self, cFunc=None, dFunc=None, vFunc=None, vPfunc=None, 
-                 vPPfunc=None, mNrmMin=None, hNrm=None, MPCmin=None, 
-                 MPCmax=None):
+    def __init__(self, cFunc=None, dFunc=None, cAnddFunc = None, vFunc=None, 
+                 vPfunc=None, vPPfunc=None, mNrmMin=None, hNrm=None, 
+                 MPCmin=None, MPCmax=None):
         '''
         The constructor for a new ConsumerIRASolution object.
 
@@ -76,6 +76,13 @@ class ConsIRASolution(HARKobject):
         cFunc : function
             The consumption function for this period, defined over liquiud 
             market resources and illiquid account balance: c = cFunc(m,n).
+        dFunc : function
+            The optimal deposit/withdrawal function for this period, defined 
+            over liquiud market resources and illiquid account balance: d = 
+            dFunc(m,n).
+        cAnddFunc : function
+            Returns both the consumption and deposit functions in one
+            calculation.
         vFunc : function
             The beginning-of-period value function for this period, defined 
             over liquiud market resources and illiquid account balance: 
@@ -110,6 +117,8 @@ class ConsIRASolution(HARKobject):
             cFunc = NullFunc()
         if dFunc is None:
             dFunc = NullFunc()
+        if cAnddFunc is None:
+            cAnddFunc = NullFunc()
         if vFunc is None:
             vFunc = NullFunc()
         if vPfunc is None:
@@ -118,6 +127,7 @@ class ConsIRASolution(HARKobject):
             vPPfunc = NullFunc()
         self.cFunc        = cFunc
         self.dFunc        = dFunc
+        self.cAnddFunc    = cAnddFunc
         self.vFunc        = vFunc
         self.vPfunc       = vPfunc
         self.vPPfunc      = vPPfunc
@@ -164,7 +174,7 @@ class PureConsumptionFunc(HARKobject):
         None
         '''
         assert np.array(b_list >= 0).all(), 'b should be non-negative'
-        self.bZero = np.array(b_list == 0).all()
+        self.bZero = np.array(b_list == 0.0).all()
         self.lMin  = deepcopy(lMin)
         
         if self.bZero: # b grid is degenerate
@@ -199,7 +209,7 @@ class PureConsumptionFunc(HARKobject):
             c = self.interpolator(l,b)
         
         # Set consumpgion to zero if l is below asset minimum
-        c[l <= self.lMin(np.asarray(b))] = 0
+        c[l <= self.lMin(np.asarray(b))] = 0.0
         
         return c
     
@@ -242,7 +252,7 @@ class EndOfPeriodValueFunc(HARKobject):
         None
         '''
         assert np.array(b_list >= 0).all(), 'b should be non-negative'
-        self.bZero = np.array(b_list == 0).all()
+        self.bZero = np.array(b_list == 0.0).all()
         self.aMin = deepcopy(aMin)
         self.u = deepcopy(uFunc)
         
@@ -323,7 +333,7 @@ class ConsIRAPolicyFunc(HARKobject):
         None
         '''
         assert np.array(n_list >= 0).all(), 'n should be non-negative'
-        self.nZero = np.array(n_list == 0).all()
+        self.nZero = np.array(n_list == 0.0).all()
         self.MaxIRA = MaxIRA
         self.PenIRA = PenIRA
         self.cFuncPure = deepcopy(cFuncPure)
@@ -364,7 +374,7 @@ class ConsIRAPolicyFunc(HARKobject):
         
         if self.nZero:
             c = self.cFuncPure(m,n)
-            d = 0
+            d = np.zeros(m.shape)
         else:
             d = self.dInterpolator(m,n)
             d[d < -n] = -n[d < -n]
@@ -379,7 +389,50 @@ class ConsIRAPolicyFunc(HARKobject):
         elif self.output == 'cFunc':
             return c
         elif self.output == 'dFunc':
-            return d        
+            return d
+
+class MultiValuedFunc(HARKobject):
+    '''
+    A class for representing a function f(x,y) = (g(x,y),h(x,y))
+    '''
+    distance_criteria = ['gFunc','hFunc']
+    
+    def __init__(self,gFunc,hFunc):
+        '''
+        Constructor for a multivalued function from domain (X,Y).
+        
+        Parameters
+        ----------
+        gFunc : function
+            A real valued function with shared domain (X,Y).
+        hFunc : function
+            A real valued function with shared domain (X,Y).
+        
+        Returns
+        -------
+        none
+        '''
+        self.gFunc = deepcopy(gFunc)
+        self.hFunc = deepcopy(hFunc)
+    
+    def __call__(self,x,y):
+        '''
+        Evaluate the g and h functions given x and y.
+        
+        Parameters
+        ----------
+        x : float or np.array
+            First argument of g and h
+        y : float or np.array
+            Second argument of g and h
+            
+        Returns
+        -------
+        f : np.array of dimension 2
+            f = (g(x,y),h(x,y))
+        '''
+        return self.gFunc(x,y), self.hFunc(x,y)
+        
 
 class ValueFuncIRA(HARKobject):
     '''
@@ -525,8 +578,9 @@ class ConsIRASolver(ConsIndShockSolver):
             i.e. before t = T_ira.
         MaxIRA: float
             Maximum allowable IRA deposit, d <= MaxIRA
-        DistIRA: float
-            Number of periods between current period and T_ira, i.e. T_ira - t
+        DistIRA: float or None
+            Number of periods between current period and T_ira, i.e. T_ira - t.
+            If DistIRA == None, T_ira > T_cycle, i.e. no expiration.
         PermGroFac : float
             Expected permanent income growth factor at the end of this period.
         BoroCnstArt: float or None
@@ -610,24 +664,31 @@ class ConsIRASolver(ConsIndShockSolver):
         -------
         none
         '''
-        # Calculate PDV factor for illiquid assets next period when
-        # a. account is liquidated next period
-        if self.DistIRA > 1: # There is a penalty tomorrow
-            bPDVFactorWithdrawNext = (1 - self.PenIRA)*(self.Rira/self.Rboro)
-        else: # No penalty tomorrow
-            bPDVFactorWithdrawNext = (self.Rira/self.Rboro)
-        
-        # b. account isn't liquidated until T_ira
-        if self.DistIRA > 0:
-            bPDVFactorWithdrawT_ira = (self.Rira/self.Rboro)**self.DistIRA
+        if self.DistIRA == None:
+            bPDVFactor = (1.0 - self.PenIRA)*(self.Rira/self.Rboro)
+            bPDVFactor_n = (1.0 - self.PenIRA)
         else:
-            bPDVFactorWithdrawT_ira = (self.Rira/self.Rboro)
+            # Calculate PDV factor for illiquid assets next period when
+            # a. account is liquidated next period
+            if self.DistIRA > 1: # There is a penalty tomorrow
+                bPDVFactorWithdrawNext = (1.0 - self.PenIRA)*(self.Rira/
+                                                              self.Rboro)
+            else: # No penalty tomorrow
+                bPDVFactorWithdrawNext = (self.Rira/self.Rboro)
         
-        bPDVFactorWithdrawNow = (1 - self.PenIRA)
+            # b. account isn't liquidated until T_ira
+            if self.DistIRA > 0:
+                bPDVFactorWithdrawT_ira = (self.Rira/self.Rboro)**self.DistIRA
+            else:
+                bPDVFactorWithdrawT_ira = (self.Rira/self.Rboro)
         
-        # Take maximum PDV factor
-        bPDVFactor = max(bPDVFactorWithdrawNext,bPDVFactorWithdrawT_ira)
-        bPDVFactor_n = max(bPDVFactorWithdrawNow,bPDVFactorWithdrawT_ira)
+            # Calculate net value of illiquid assets liquidated at beginning of
+            # period
+            bPDVFactorWithdrawNow = (1.0 - self.PenIRA)
+        
+            # Take maximum PDV factor
+            bPDVFactor = max(bPDVFactorWithdrawNext,bPDVFactorWithdrawT_ira)
+            bPDVFactor_n = max(bPDVFactorWithdrawNow,bPDVFactorWithdrawT_ira)
         
         # Calculate the minimum allowable value of money resources in this 
         # period, when b = 0
@@ -635,10 +696,11 @@ class ConsIRASolver(ConsIndShockSolver):
                            (self.PermGroFac*self.PermShkMinNext)/self.Rboro)
                            
         # Create natural borrowing constraint for different values of b
-        self.BoroCnstNata = BoroCnstNat - np.append([0],bPDVFactor*np.asarray(
-                        self.bXtraGrid))
+        self.BoroCnstNata = BoroCnstNat - np.append([0.0],
+                                                    bPDVFactor*
+                                                    np.asarray(self.bXtraGrid))
         
-        self.BoroCnstNatn = BoroCnstNat - np.append([0],bPDVFactor_n*
+        self.BoroCnstNatn = BoroCnstNat - np.append([0.0],bPDVFactor_n*
                                                      np.asarray(self.bXtraGrid)
                                                      )
                            
@@ -899,7 +961,7 @@ class ConsIRASolver(ConsIndShockSolver):
         
         v_j_ik = self.u(np.asarray(cNrm_j_ik)) + np.asarray(w_j_ik)
         
-        cNrm_j_k = [[c[np.argmax(v)] if c.size > 0 else 0 for c,v in 
+        cNrm_j_k = [[c[np.argmax(v)] if c.size > 0 else 0.0 for c,v in 
                     zip(ci,vi)] for ci,vi in zip(cNrm_j_ik,v_j_ik)]
         
         if self.bNrmCount == 1:
@@ -1061,9 +1123,9 @@ class ConsIRASolver(ConsIndShockSolver):
             Value of d that maximizes v(d,m,n) given m and n.
         '''
         d = basinhopping(self.makeNegvOfdFunc,
-                         0,minimizer_kwargs={"bounds":((-nNrm + 1e-10,
-                                                        self.MaxIRA),),
-                                             "args":(mNrm,nNrm)}).x
+                         0.0,minimizer_kwargs={"bounds":((-nNrm + 1e-10,
+                                                          self.MaxIRA),),
+                                               "args":(mNrm,nNrm)}).x
         
         return d
         
@@ -1083,8 +1145,10 @@ class ConsIRASolver(ConsIndShockSolver):
         none
         '''
         if self.bNrmCount == 1:
-            self.dFuncNow = ConstantFunction(0)
+            self.dFuncNow = ConstantFunction(0.0)
             self.cFuncNow = self.cFuncNowPure
+            self.cAnddFuncNow = MultiValuedFunc(self.cFuncNowPure,
+                                                ConstantFunction(0.0))
         else:
             mNrm = self.aNrmNowUniform
             nNrm = self.bNrmNow
@@ -1103,6 +1167,10 @@ class ConsIRASolver(ConsIndShockSolver):
             self.dFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm_trans,self.MaxIRA,
                                               self.PenIRA,self.cFuncNowPure,
                                               output='dFunc')
+            self.cAnddFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm_trans,
+                                                  self.MaxIRA,self.PenIRA,
+                                                  self.cFuncNowPure,
+                                                  output='both')
     
     def makeBasicSolution(self,EndOfPrdv,EndOfPrdvP,aNrm,bNrm):
         '''
@@ -1134,7 +1202,9 @@ class ConsIRASolver(ConsIndShockSolver):
         vFuncNow = ValueFuncIRA(self.dFuncNow,self.makeNegvOfdFunc,self.PenIRA)
         vPfuncNow = MargValueFuncIRA(self.cFuncNow,self.CRRA)
         solution_now = ConsIRASolution(cFunc = self.cFuncNow,
-                                       dFunc = self.dFuncNow, vFunc = vFuncNow,
+                                       dFunc = self.dFuncNow, 
+                                       cAnddFunc = self.cAnddFuncNow,
+                                       vFunc = vFuncNow,
                                        vPfunc = vPfuncNow, 
                                        mNrmMin = self.mNrmMin)
         return solution_now
@@ -1180,7 +1250,7 @@ class ConsIRASolver(ConsIndShockSolver):
                                                         self.ShkPrbs_temp,
                                                         self.Rfree_Mat)
         solution = self.makeBasicSolution(EndOfPrdv,EndOfPrdvP,aNrm,bNrm)
-        solution   = self.addMPCandHumanWealth(solution)
+        solution = self.addMPCandHumanWealth(solution)
         return solution
 
 def solveConsIRA(solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,Rsave,Rira,
@@ -1221,7 +1291,7 @@ def solveConsIRA(solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,Rsave,Rira,
             i.e. before t = T_ira.
         MaxIRA: float
             Maximum allowable IRA deposit, d <= MaxIRA
-        DistIRA: float
+        DistIRA: float or None
             Number of periods between current period and T_ira, i.e. T_ira - t
         PermGroFac : float
             Expected permanent income growth factor at the end of this period.
@@ -1269,7 +1339,7 @@ class IRAConsumerType(IndShockConsumerType):
     A consumer type that faces idiosyncratic shocks to income and has a liquid
     and illiquid savings account, with different interest factors on saving vs 
     borrowing in the liquid account, and a different interest factor on the
-    illiquid account.  Extends IndShockConsumerType, but uses a different
+    illiquid account. Extends IndShockConsumerType, but uses a different
     solution concept, the Nested Endogenous Grid Method (NEGM). Solver for this 
     class is currently only compatible with linear spline interpolation.
     '''
@@ -1277,8 +1347,10 @@ class IRAConsumerType(IndShockConsumerType):
                                      np.array([0.0,1.0]),np.array([0.0,1.0]))
     dFunc_terminal_ = BilinearInterp(np.array([[0.0,-1.0],[0.0,-1.0]]),
                                      np.array([0.0,1.0]),np.array([0.0,1.0]))
+    cAnddFunc_terminal_ = MultiValuedFunc(cFunc_terminal_,dFunc_terminal_)
     solution_terminal = ConsIRASolution(cFunc = cFunc_terminal_,
                                         dFunc = dFunc_terminal_,
+                                        cAnddFunc = cAnddFunc_terminal_,
                                         mNrmMin=0.0,hNrm=0.0,MPCmin=1,MPCmax=1)
     
     time_inv_ = copy(IndShockConsumerType.time_inv_)
@@ -1330,9 +1402,24 @@ class IRAConsumerType(IndShockConsumerType):
         -------
         none
         '''
-        self.solution_terminal.vFunc   = ValueFunc2D(self.cFunc_terminal_,
+        if self.T_ira < self.T_cycle:
+            cFunc_terminal_ = BilinearInterp(np.array([[0.0,1.0],[1.0,2.0]]),
+                                             np.array([0.0,1.0]),
+                                             np.array([0.0,1.0]))
+        else:
+            cFunc_terminal_ = BilinearInterp(np.array([[0.0,1.0 - 
+                                                        self.PenIRAFixed],
+                                                        [1.0,2.0 - 
+                                                         self.PenIRAFixed]]),
+                                             np.array([0.0,1.0]),
+                                             np.array([0.0,1.0]))
+        self.solution_terminal.cFunc = cFunc_terminal_
+        self.solution_terminal.cAnddFunc = MultiValuedFunc(cFunc_terminal_,
+                                                           self.dFunc_terminal_
+                                                           )
+        self.solution_terminal.vFunc   = ValueFunc2D(cFunc_terminal_,
                                                      self.CRRA)
-        self.solution_terminal.vPfunc  = MargValueFuncIRA(self.cFunc_terminal_,
+        self.solution_terminal.vPfunc  = MargValueFuncIRA(cFunc_terminal_,
                                                           self.CRRA)
         
     def update(self):
@@ -1349,11 +1436,11 @@ class IRAConsumerType(IndShockConsumerType):
         None
         '''
         IndShockConsumerType.update(self)
-        self.updatelgrid()
-        self.updatebgrid()
+        self.updatelGrid()
+        self.updatebGrid()
         self.updateIRA()
         
-    def updatelgrid(self):
+    def updatelGrid(self):
         '''
         Update the grid for l, assets net of deposits/withdrawals.
         
@@ -1368,7 +1455,7 @@ class IRAConsumerType(IndShockConsumerType):
         self.lXtraGrid = self.aXtraGrid
         self.addToTimeInv('lXtraGrid')
         
-    def updatebgrid(self):
+    def updatebGrid(self):
         '''
         Update the grid for b, illiquid assets.
         
@@ -1392,5 +1479,102 @@ class IRAConsumerType(IndShockConsumerType):
             self.bXtraGrid = constructAssetsGrid(bgrid)
         self.addToTimeInv('bXtraGrid')
         
-    def 
+    def updateIRA(self):
+        '''
+        Create the time pattern of IRA penalties and distance from IRA
+        expiration.
+        
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        '''
+        if self.T_ira < self.T_cycle:
+            self.PenIRA = (self.T_ira)*[self.PenIRAFixed] +\
+                          (self.T_cycle - self.T_ira)*[0.0]
+            self.DistIRA = [self.T_ira - t for t in range(self.T_cycle)]
+        else:
+            self.PenIRA = self.T_cycle*[self.PenIRAFixed]
+            self.DistrIRA = self.T_cycle*[None]
+        self.addToTimeVary('PenIRA','DistIRA')
+        
+    def getRfree(self):
+        '''
+        Returns an array of size self.AgentCount with self.Rboro or self.Rsave 
+        in each entry, based on whether self.aNrmNow >< 0.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        RfreeNow : np.array
+             Array of size self.AgentCount with risk free interest rate for 
+             each agent.
+        '''
+        RfreeNow = self.Rboro*np.ones(self.AgentCount)
+        RfreeNow[self.aNrmNow > 0] = self.Rsave
+        return RfreeNow
+    
+    
+        
+    def makeEulerErrorFunc(self,mMax=100,approx_inc_dstn=True):
+        '''
+        Creates a "normalized Euler error" function for this instance, mapping
+        from market resources to "consumption error per dollar of consumption."
+        Stores result in attribute eulerErrorFunc as an interpolated function.
+        Has option to use approximate income distribution stored in self.IncomeDstn
+        or to use a (temporary) very dense approximation.
+
+        NOT YET IMPLEMENTED FOR THIS CLASS
+
+        Parameters
+        ----------
+        mMax : float
+            Maximum normalized market resources for the Euler error function.
+        approx_inc_dstn : Boolean
+            Indicator for whether to use the approximate discrete income distri-
+            bution stored in self.IncomeDstn[0], or to use a very accurate
+            discrete approximation instead.  When True, uses approximation in
+            IncomeDstn; when False, makes and uses a very dense approximation.
+
+        Returns
+        -------
+        None
+        '''
+        raise NotImplementedError()
+
+    def checkConditions(self,verbose=False):
+        '''
+        This method checks whether the instance's type satisfies the growth 
+        impatiance condition (GIC), return impatiance condition (RIC), absolute 
+        impatiance condition (AIC), weak return impatiance condition (WRIC), 
+        finite human wealth condition (FHWC) and finite value of autarky 
+        condition (FVAC). These are the conditions that are sufficient for 
+        nondegenerate solutions under infinite horizon with a 1 period cycle. 
+        Depending on the model at hand, a different combination of these 
+        conditions must be satisfied. To check which conditions are relevant to 
+        the model at hand, a reference to the relevant theoretical literature 
+        is made.
+
+        NOT YET IMPLEMENTED FOR THIS CLASS
+
+        Parameters
+        ----------
+        verbose : boolean
+            Specifies different levels of verbosity of feedback. When false, it 
+            only reports whether the instance's type fails to satisfy a 
+            particular condition. When true, it reports all results, i.e. the 
+            factor values for all conditions.
+
+        Returns
+        -------
+        None
+        '''
+        raise NotImplementedError()
+    
         
