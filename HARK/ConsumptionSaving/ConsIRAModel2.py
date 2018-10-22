@@ -574,7 +574,7 @@ class TerminalValueFunc2D(HARKobject):
             resources m and illiquid market resources n; has same size as 
             inputs m and p.
         '''
-        return utility(self.func(m,n),gam=self.CRRA)
+        return utility(self.cFunc(m,n),gam=self.CRRA)
 
 class ConsIRASolver(ConsIndShockSolver):
     '''
@@ -1292,7 +1292,7 @@ class ConsIRASolver(ConsIndShockSolver):
         solution : ConsIRASolution
             The solution to the one period problem.
         '''
-        aNrm,bNrm = self.prepareToCalcEndOfPrdvP()
+        aNrm,bNrm = self.prepareToCalcEndOfPrdvAndvP()
         EndOfPrdv,EndOfPrdvP = self.calcEndOfPrdvAndvP(self.mNrmNext,
                                                         self.nNrmNext,
                                                         self.PermShkVals_temp,
