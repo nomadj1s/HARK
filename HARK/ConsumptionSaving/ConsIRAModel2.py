@@ -1848,3 +1848,6 @@ def main():
                                  'pLvlNow','t_age']
         IRAexample.initializeSim()
         IRAexample.simulate()
+        
+if __name__ == '__main__':
+    main()
