@@ -21,7 +21,7 @@ from builtins import object
 from copy import copy, deepcopy
 import numpy as np
 from scipy.optimize import basinhopping
-from time import clock,time
+from time import clock, time
 from joblib import Parallel, delayed
 import dill as pickle
 import multiprocessing
@@ -36,7 +36,6 @@ from interpolation import CubicInterp, LowerEnvelope, LinearInterp,\
                            BilinearInterp, ConstantFunction
 from ConsIndShockModel import ConsIndShockSolver, constructAssetsGrid,\
                               IndShockConsumerType
-from ConsGenIncProcessModel import ValueFunc2D
 from simulation import drawDiscrete, drawBernoulli, drawLognormal, drawUniform
 from utilities import approxMeanOneLognormal, addDiscreteOutcomeConstantMean,\
                            combineIndepDstns, makeGridExpMult, CRRAutility, \
@@ -527,6 +526,55 @@ class MargValueFuncIRA(HARKobject):
             resources m and illiquid resources n; has same size as m, n.
         '''
         return utilityP(self.cFunc(m,n),gam=self.CRRA)
+
+class TerminalValueFunc2D(HARKobject):
+    '''
+    A class for representing a terminal value function in a model with liquid
+    assets and illiquid assets. The underlying interpolation is in the space of 
+    (m,n) --> c.
+    '''
+    distance_criteria = ['func','CRRA']
+
+    def __init__(self,cFunc,CRRA):
+        '''
+        Constructor for a terminal value function object.
+
+        Parameters
+        ----------
+        cFunc : function
+            A real function representing the terminal consumption function
+            defined on liquid market resources and illiquid market resources:
+            c(m,n)
+        CRRA : float
+            Coefficient of relative risk aversion.
+
+        Returns
+        -------
+        None
+        '''
+        self.cFunc = deepcopy(cFunc)
+        self.CRRA = CRRA
+
+    def __call__(self,m,n):
+        '''
+        Evaluate the value function at given levels of liquid market resources 
+        m and illiquid assets n.
+
+        Parameters
+        ----------
+        m : float or np.array
+            Liquid market resources
+        n : float or np.array
+            Illiquid market resources
+
+        Returns
+        -------
+        v : float or np.array
+            Terminal value of beginning this period with liquid market 
+            resources m and illiquid market resources n; has same size as 
+            inputs m and p.
+        '''
+        return utility(self.func(m,n),gam=self.CRRA)
 
 class ConsIRASolver(ConsIndShockSolver):
     '''
@@ -1418,8 +1466,8 @@ class IRAConsumerType(IndShockConsumerType):
         self.solution_terminal.policyFunc = MultiValuedFunc(cFunc_terminal_,
                                                            self.dFunc_terminal_
                                                            )
-        self.solution_terminal.vFunc   = ValueFunc2D(cFunc_terminal_,
-                                                     self.CRRA)
+        self.solution_terminal.vFunc   = TerminalValueFunc2D(cFunc_terminal_,
+                                                             self.CRRA)
         self.solution_terminal.vPfunc  = MargValueFuncIRA(cFunc_terminal_,
                                                           self.CRRA)
         
@@ -1747,11 +1795,56 @@ class IRAConsumerType(IndShockConsumerType):
 ###############################################################################
 
 def main():
-    import ConsumerParameters as Params
-    from utilities import plotFuncsDer, plotFuncs
-    from time import clock
+    import ConsIRAParameters as Params
     mystr = lambda number : "{:.4f}".format(number)
 
-    do_simulation           = True
+    do_simulation = True
+
+    # Make and solve an example IRA consumer
+    IRAexample = IRAConsumerType(**Params.init_IRA)
+    IRAexample.cycles = 1 # Make this consumer live a sequence of periods
+                          # exactly once
     
-        
+    start_time = clock()
+    start_time2 = time()
+    IRAexample.solve()
+    end_time = clock()
+    end_time2 = time()
+    print('Solving an IRA consumer took ' + mystr(end_time-start_time/3600) +\
+          ' processor hours.')
+    print('Solving an IRA consumer took ' + mystr(end_time2-start_time2/3600)+\
+          ' real hours.')
+    
+    # Plot the consumption functions during working life
+    def makecFuncm(n):
+        def cm(m):
+            m = np.asarray(m)
+            ni = n*np.ones(len(m))
+            return IRAexample.solution[6].cFunc(m,ni)
+        return cm
+    
+    print('Consumption function in period 6 for different values of n')
+    plotFuncs([makecFuncm(n) for n in [0,1,2]],
+               IRAexample.solution[6].mNrmMin,5,
+               legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
+
+    def makedFuncm(n):
+        def dm(m):
+            m = np.asarray(m)
+            ni = n*np.ones(len(m))
+            return IRAexample.solution[6].dFunc(m,ni)
+        return dm
+    
+    print('Consumption function in period 6 for different values of n')
+    plotFuncs([makedFuncm(n) for n in [0,1,2]],
+               IRAexample.solution[6].mNrmMin,5,
+               legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
+
+    # Simulate some data; results stored in mNrmNow_hist, nNrmNow_hist, 
+    # cNrmNow_hist, dNrmNow_hist, pLvlNow_hist, and t_age_hist
+    if do_simulation:
+        IRAexample.T_sim = 120
+        IRAexample.track_vars = ['mNrmNow','nNrmNow','cNrmNow','dNrmNow',
+                                 'pLvlNow','t_age']
+        IRAexample.initializeSim()
+        IRAexample.simulate()
