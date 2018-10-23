@@ -24,7 +24,7 @@ from scipy.optimize import basinhopping
 from time import clock, time
 from joblib import Parallel, delayed
 import dill as pickle
-import multiprocessing
+import multiprocessing as mp
 
 import sys 
 import os
@@ -1202,10 +1202,11 @@ class ConsIRASolver(ConsIndShockSolver):
             mNrm = self.aNrmNowUniform
             nNrm = self.bNrmNow
             
-            n_cpus = multiprocessing.cpu_count()
-           
-            dNrm_list = Parallel(n_jobs=n_cpus)(delayed(self.findArgMaxv)(m,n) 
-                                                for n in nNrm for m in mNrm)
+            pool = mp.Process(processes=mp.cpu_count)
+            
+            # Use parallel processing to speed this step up
+            dNrm_list = [pool.apply(self.findArgMaxv, args=(m,n)) 
+                                                for n in nNrm for m in mNrm]
             
             dNrm = np.asarray(dNrm_list).reshape(len(nNrm),len(mNrm))
             dNrm_trans = np.transpose(dNrm)

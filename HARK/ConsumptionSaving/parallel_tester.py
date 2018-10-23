@@ -14,7 +14,7 @@ from time import clock                         # Timing utility
 from copy import deepcopy                      # "Deep" copying for complex objects
 mystr = lambda number : "{:.4f}".format(number)# Format numbers as strings
 import numpy as np 
-import multiprocessing
+import multiprocessing as mp
 from joblib import Parallel, delayed
 import dill as pickle
 from scipy.optimize import basinhopping
@@ -23,16 +23,16 @@ def maxFunc(d,m,n):
     '''
     Simple function to maximize over d, given m, n.
     '''
-    return m*d**4 - n*d**2 + 5
+    return (d - m - n)**2
 
 def findMax(m,n):
     '''
     wrapper that uses basinhopper to maximize maxFunc
     '''
     return basinhopping(maxFunc,0,
-                                minimizer_kwargs={"bounds":((-n,5),),
+                                minimizer_kwargs={"bounds":((-n,10),),
                                                   "args":(m,n)}).x
-n_cpus = multiprocessing.cpu_count()
+n_cpus = mp.cpu_count()
 
 M = np.arange(1,10,1)
 N = np.arange(1,10,1)
@@ -44,6 +44,13 @@ print('Solving without multithreading took ' + mystr(end_time-start_time) + ' se
 
 start_time = clock()
 d2 = Parallel(n_jobs=n_cpus)(delayed(findMax)(m,n) for m in M for n in N)
+end_time = clock()
+print('Solving with multithreading took ' + mystr(end_time-start_time) + ' seconds.')
+
+pool = mp.Pool(processes=n_cpus)
+
+start_time = clock()
+d3 = [pool.apply(findMax, args=(m,n)) for m in M for n in N]
 end_time = clock()
 print('Solving with multithreading took ' + mystr(end_time-start_time) + ' seconds.')
 
