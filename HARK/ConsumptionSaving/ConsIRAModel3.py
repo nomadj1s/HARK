@@ -1205,7 +1205,7 @@ class ConsIRASolver(ConsIndShockSolver):
             pool = mp.Pool(processes=mp.cpu_count)
             
             # Use parallel processing to speed this step up
-            dNrm_list = [pool.apply(self.findArgMaxv, args=(m,n)) 
+            dNrm_list = [pool.apply(self.findArgMaxv, args=(m,n,)) 
                                                 for n in nNrm for m in mNrm]
             
             dNrm = np.asarray(dNrm_list).reshape(len(nNrm),len(mNrm))
