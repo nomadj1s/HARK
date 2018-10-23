@@ -1202,7 +1202,7 @@ class ConsIRASolver(ConsIndShockSolver):
             mNrm = self.aNrmNowUniform
             nNrm = self.bNrmNow
             
-            pool = mp.Process(processes=mp.cpu_count)
+            pool = mp.Pool(processes=mp.cpu_count)
             
             # Use parallel processing to speed this step up
             dNrm_list = [pool.apply(self.findArgMaxv, args=(m,n)) 
