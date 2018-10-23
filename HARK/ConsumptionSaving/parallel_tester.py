@@ -19,22 +19,29 @@ from joblib import Parallel, delayed
 import dill as pickle
 from scipy.optimize import basinhopping
 
+import sys 
+import os
+sys.path.insert(0, os.path.abspath('../'))
+sys.path.insert(0, os.path.abspath('./'))
+
+from interpolation import BilinearInterp
+
 def maxFunc(d,m,n):
     '''
     Simple function to maximize over d, given m, n.
     '''
-    return (d - m - n)**2
+    return (d - max(m,n))**2
 
 def findMax(m,n):
     '''
     wrapper that uses basinhopper to maximize maxFunc
     '''
     return basinhopping(maxFunc,0,
-                                minimizer_kwargs={"bounds":((-n,10),),
+                                minimizer_kwargs={"bounds":((-n,8),),
                                                   "args":(m,n)}).x
 n_cpus = mp.cpu_count()
 
-M = np.arange(1,10,1)
+M = np.arange(1,8,1)
 N = np.arange(1,10,1)
 
 start_time = clock()
