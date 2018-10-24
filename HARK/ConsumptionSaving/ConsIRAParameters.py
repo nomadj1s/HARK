@@ -11,7 +11,7 @@ import os
 sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('./'))
 
-from ConsIRAModel2 import ConsIRASolution
+from ConsIRAModel2 import ConsIRASolution, utility, utilityP
 
 # -----------------------------------------------------------------------------
 # --- Define all of the parameters for the consumption IRA model   ------------
