@@ -1212,7 +1212,8 @@ class ConsIRASolver(ConsIndShockSolver):
             nNrm = self.bNrmNow
             
             # Use parallel processing to speed this step up
-            pool = mp.Pool(processes=mp.cpu_count)
+            n_cpus = mp.cpu_count
+            pool = mp.Pool(processes=n_cpus)
             
             n_repeat = np.repeat(np.asarray(nNrm),len(mNrm))
             m_tile = np.tile(np.asarray(mNrm),len(nNrm))
