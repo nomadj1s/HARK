@@ -575,15 +575,6 @@ class TerminalValueFunc2D(HARKobject):
             inputs m and p.
         '''
         return utility(self.cFunc(m,n),gam=self.CRRA)
-    
-def unwrap_self(arg, **kwarg):
-    '''
-    Auxiliary function needed in order to run the multiprocessing command Pool
-    within a method of a class below. This gets around Pool having to call a
-    method, i.e. self.findArgMaxv. Multiprocessing needs functions that can be 
-    called in a global context, in order to "pickle."
-    '''
-    return ConsIRASolver.findArgMaxv(*arg, **kwarg)
 
 class ConsIRASolver(ConsIndShockSolver):
     '''
@@ -1215,21 +1206,13 @@ class ConsIRASolver(ConsIndShockSolver):
             n_cpus = mp.cpu_count()
             pool = mp.Pool(processes=n_cpus)
             
-            mm = np.repeat(np.array(mNrm),len(nNrm))
-            nn = np.tile(np.array(nNrm),len(mNrm))
-            d3 = [pool.apply(unwrap_self, args=(i,)) for i in zip([self]*len(mm),mm,nn)]
+            n_repeat = np.repeat(np.array(nNrm),len(mNrm))
+            m_tile = np.tile(np.array(mNrm),len(nNrm))
             
-            #n_cpus = mp.cpu_count()
-            #pool = mp.Pool(processes=n_cpus)
+            dNrm_list = [pool.apply(unwrap_self, args=(i,)) 
+                         for i in zip([self]*len(n_repeat),n_repeat,m_tile)]
             
-            #n_repeat = np.repeat(np.array(nNrm),len(mNrm))
-            #m_tile = np.tile(np.array(mNrm),len(nNrm))
-            
-            #dNrm_list = [pool.apply(unwrap_self, args=(i,)) 
-            #             for i in zip([self]*len(n_repeat),n_repeat,m_tile)]
-            
-            #dNrm = np.asarray(dNrm_list).reshape(len(nNrm),len(mNrm))
-            dNrm = np.asarray(d3).reshape(len(nNrm),len(mNrm))
+            dNrm = np.asarray(dNrm_list).reshape(len(nNrm),len(mNrm))
             dNrm_trans = np.transpose(dNrm)
             
             self.cFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm_trans,self.MaxIRA,
@@ -1813,7 +1796,20 @@ class IRAConsumerType(IndShockConsumerType):
         None
         '''
         raise NotImplementedError()
-        
+
+# =============================================================================
+# ================ Other useful functions =====================================
+# =============================================================================
+
+def unwrap_self(arg, **kwarg):
+    '''
+    Auxiliary function needed in order to run the multiprocessing command Pool
+    within a method of a class below. This gets around Pool having to call a
+    method, i.e. self.findArgMaxv. Multiprocessing needs functions that can be 
+    called in a global context, in order to "pickle."
+    '''
+    return ConsIRASolver.findArgMaxv(*arg, **kwarg)
+
 ###############################################################################
 
 def main():
