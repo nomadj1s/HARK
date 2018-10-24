@@ -21,6 +21,34 @@ import numpy as np
 from time import clock
 from parallel import multiThreadCommands, multiThreadCommandsFake
 
+# For Timing Progress
+import progressbar as pb
+
+#define progress timer class
+class progress_timer:
+
+    def __init__(self, n_iter, description="Something"):
+        self.n_iter         = n_iter
+        self.iter           = 0
+        self.description    = description + ': '
+        self.timer          = None
+        self.initialize()
+
+    def initialize(self):
+        #initialize timer
+        widgets = [self.description, pb.Percentage(), ' ',   
+                   pb.Bar(marker=pb.RotatingMarker()), ' ', pb.ETA()]
+        self.timer = pb.ProgressBar(widgets=widgets, maxval=self.n_iter).start()
+
+    def update(self, q=1):
+        #update timer
+        self.timer.update(self.iter)
+        self.iter += q
+
+    def finish(self):
+        #end timer
+        self.timer.finish()
+
 def distanceMetric(thing_A,thing_B):
     '''
     A "universal distance" metric that can be used as a default in many settings.
@@ -840,7 +868,14 @@ def solveOneCycle(agent,solution_last):
     # Initialize the solution for this cycle, then iterate on periods
     solution_cycle = []
     solution_next  = solution_last
+    
+    # initialize timer
+    pt = progress_timer(description= 'Solving Lifecycle', n_iter=T)
+    
     for t in range(T):
+        # update timer
+        pt.update()
+        
         # Update which single period solver to use (if it depends on time)
         if not always_same_solver:
             solveOnePeriod = agent.solveOnePeriod[t]
@@ -859,7 +894,10 @@ def solveOneCycle(agent,solution_last):
         solution_t = solveOnePeriod(**temp_dict)
         solution_cycle.append(solution_t)
         solution_next = solution_t
-
+    
+    # finish timer
+    pt.finish()
+    
     # Return the list of per-period solutions
     return solution_cycle
 
