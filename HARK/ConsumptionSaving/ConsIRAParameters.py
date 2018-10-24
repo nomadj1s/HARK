@@ -144,3 +144,48 @@ init_IRA = { 'CRRA': CRRA,
              'PenIRAFixed' : PenIRAFixed,
              'MaxIRA' : MaxIRA
             }
+
+def cFunc_terminal(m,n):
+    return m + n
+
+def dFunc_terminal(m,n):
+    return -n
+
+def policyFunc_terminal(m,n):
+    return m + n, -n
+
+def vFunc_terminal(m,n):
+    return utility(cFunc_terminal(m,n),2)
+
+def vPfunc_terminal(m,n):
+    return utilityP(cFunc_terminal(m,n),2)
+
+cFunc = cFunc_terminal
+dFunc = cFunc_terminal
+vFunc = vFunc_terminal
+vPfunc = vPfunc_terminal
+
+solution_terminal = ConsIRASolution(cFunc=cFunc,dFunc=dFunc,vFunc=vFunc,
+                                    policyFunc = policyFunc_terminal,
+                                    vPfunc=vPfunc,mNrmMin=0.0,hNrm=0.0,
+                                    MPCmin=1,MPCmax=1)
+
+init_IRA_Solver = { 'solution_next' : solution_terminal,
+                    'IncomeDstn' : IncomeDstn,
+                    'LivPrb' : 0.98,
+                    'DiscFac' : 0.98,
+                    'CRRA' : 2,
+                    'Rboro' : 1.2,
+                    'Rsave': 1.02,
+                    'Rira' : 1.1,
+                    'PenIRA' : .1,
+                    'MaxIRA' : .2,
+                    'DistIRA' : 1,
+                    'PermGroFac' : 1.1,
+                    'BoroCnstArt' : None,
+                    'aXtraGrid' : np.array([.1,.5,1,2,3,4]),
+                    'bXtraGrid' : np.array([.5,1,2,3]),
+                    'lXtraGrid' : np.array([.5,.75,1,2,3]),
+                    'vFuncBool' : True,
+                    'CubicBool' : True
+                    }
