@@ -6,6 +6,13 @@ from __future__ import division, print_function
 from copy import copy
 import numpy as np
 
+import sys 
+import os
+sys.path.insert(0, os.path.abspath('../'))
+sys.path.insert(0, os.path.abspath('./'))
+
+from core import NullFunc, HARKobject
+
 # -----------------------------------------------------------------------------
 # --- Define all of the parameters for the consumption IRA model   ------------
 # -----------------------------------------------------------------------------
@@ -164,6 +171,90 @@ cFunc = cFunc_terminal
 dFunc = cFunc_terminal
 vFunc = vFunc_terminal
 vPfunc = vPfunc_terminal
+
+class ConsIRASolution(HARKobject):
+    '''
+    A class representing the solution of a single period of a 
+    consumption-saving model with a liquid account and an IRA-like illiquid
+    savings account. The solution must include a consumption function, an
+    optimal illiquid deposit function, value function and marginal value 
+    function.
+
+    Here and elsewhere in the code, Nrm indicates that variables are normalized
+    by permanent income.
+    '''
+    distance_criteria = ['cFunc','dFunc']
+    
+    def __init__(self, cFunc=None, dFunc=None, policyFunc = None, vFunc=None, 
+                 vPfunc=None, vPPfunc=None, mNrmMin=None, hNrm=None, 
+                 MPCmin=None, MPCmax=None):
+        '''
+        The constructor for a new ConsumerIRASolution object.
+
+        Parameters
+        ----------
+        cFunc : function
+            The consumption function for this period, defined over liquiud 
+            market resources and illiquid account balance: c = cFunc(m,n).
+        dFunc : function
+            The optimal deposit/withdrawal function for this period, defined 
+            over liquiud market resources and illiquid account balance: d = 
+            dFunc(m,n).
+        policyFunc : function
+            Returns both the consumption and deposit functions in one
+            calculation.
+        vFunc : function
+            The beginning-of-period value function for this period, defined 
+            over liquiud market resources and illiquid account balance: 
+            v = vFunc(m,n)
+        vPfunc : function
+            The beginning-of-period marginal value function, with respect to
+            m, for this period, defined over liquiud market resources and 
+            illiquid account balance: vP = vPfunc(m,n)
+        vPPfunc : function
+            The beginning-of-period marginal marginal value function, with 
+            respect to m, for this period, defined over liquiud market 
+            resources and illiquid account balance: vPP = vPPfunc(m,n)
+        mNrmMin : float
+            The minimum allowable liquid market resources for this period,
+            conditional on having zero illiquid assets
+        hNrm : float
+            Human wealth after receiving income this period: PDV of all future
+            income, ignoring mortality.
+        MPCmin : float
+            Infimum of the marginal propensity to consume from m this period.
+            MPC --> MPCmin as m --> infinity.
+        MPCmax : float
+            Supremum of the marginal propensity to consume from m this period.
+            MPC --> MPCmax as m --> mNrmMin.
+
+        Returns
+        -------
+        None
+        '''
+        # Change any missing function inputs to NullFunc
+        if cFunc is None:
+            cFunc = NullFunc()
+        if dFunc is None:
+            dFunc = NullFunc()
+        if policyFunc is None:
+            policyFunc = NullFunc()
+        if vFunc is None:
+            vFunc = NullFunc()
+        if vPfunc is None:
+            vPfunc = NullFunc()
+        if vPPfunc is None:
+            vPPfunc = NullFunc()
+        self.cFunc        = cFunc
+        self.dFunc        = dFunc
+        self.policyFunc   = policyFunc
+        self.vFunc        = vFunc
+        self.vPfunc       = vPfunc
+        self.vPPfunc      = vPPfunc
+        self.mNrmMin      = mNrmMin
+        self.hNrm         = hNrm
+        self.MPCmin       = MPCmin
+        self.MPCmax       = MPCmax
 
 solution_terminal = ConsIRASolution(cFunc=cFunc,dFunc=dFunc,vFunc=vFunc,
                                     policyFunc = policyFunc_terminal,
