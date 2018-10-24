@@ -261,6 +261,8 @@ solution_terminal = ConsIRASolution(cFunc=cFunc,dFunc=dFunc,vFunc=vFunc,
                                     vPfunc=vPfunc,mNrmMin=0.0,hNrm=0.0,
                                     MPCmin=1,MPCmax=1)
 
+IncomeDstn = np.array([[.25,.25,.25,.25],[.9,.9,1.1,1.1],[.8,1.2,.8,1.2]])
+
 init_IRA_Solver = { 'solution_next' : solution_terminal,
                     'IncomeDstn' : IncomeDstn,
                     'LivPrb' : 0.98,
