@@ -1215,12 +1215,21 @@ class ConsIRASolver(ConsIndShockSolver):
             n_cpus = mp.cpu_count()
             pool = mp.Pool(processes=n_cpus)
             
-            n_repeat = np.repeat(np.array(nNrm),len(mNrm))
-            m_tile = np.tile(np.array(mNrm),len(nNrm))
+            mm = np.repeat(np.array(mNrm),len(nNrm))
+            nn = np.tile(np.array(nNrm),len(mNrm))
+            d3 = [pool.apply(unwrap_self, args=(i,)) for i in zip([self]*len(mm),mm,nn)]
             
-            dNrm_list = [pool.apply(unwrap_self, args=(i,)) for i in zip([self]*len(n_repeat),n_repeat,m_tile)]
+            #n_cpus = mp.cpu_count()
+            #pool = mp.Pool(processes=n_cpus)
             
-            dNrm = np.asarray(dNrm_list).reshape(len(nNrm),len(mNrm))
+            #n_repeat = np.repeat(np.array(nNrm),len(mNrm))
+            #m_tile = np.tile(np.array(mNrm),len(nNrm))
+            
+            #dNrm_list = [pool.apply(unwrap_self, args=(i,)) 
+            #             for i in zip([self]*len(n_repeat),n_repeat,m_tile)]
+            
+            #dNrm = np.asarray(dNrm_list).reshape(len(nNrm),len(mNrm))
+            dNrm = np.asarray(d3).reshape(len(nNrm),len(mNrm))
             dNrm_trans = np.transpose(dNrm)
             
             self.cFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm_trans,self.MaxIRA,
