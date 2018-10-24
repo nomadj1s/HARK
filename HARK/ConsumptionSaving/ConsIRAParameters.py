@@ -11,7 +11,7 @@ import os
 sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('./'))
 
-from core import HARKobject
+from ConsIRAModel2 import ConsIRASolution
 
 # -----------------------------------------------------------------------------
 # --- Define all of the parameters for the consumption IRA model   ------------
@@ -172,7 +172,7 @@ dFunc = cFunc_terminal
 vFunc = vFunc_terminal
 vPfunc = vPfunc_terminal
 
-solution_terminal = HARKobject(cFunc=cFunc,dFunc=dFunc,vFunc=vFunc,
+solution_terminal = ConsIRASolution(cFunc=cFunc,dFunc=dFunc,vFunc=vFunc,
                                     policyFunc = policyFunc_terminal,
                                     vPfunc=vPfunc,mNrmMin=0.0,hNrm=0.0,
                                     MPCmin=1,MPCmax=1)
