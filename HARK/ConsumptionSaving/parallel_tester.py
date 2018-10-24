@@ -61,4 +61,38 @@ d3 = [pool.apply(findMax, args=(m,n)) for m in M for n in N]
 end_time = clock()
 print('Solving with multithreading took ' + mystr(end_time-start_time) + ' seconds.')
 
-#assert d1 == d2, 'Received difference answers'
+def unwrap_self(arg, **kwarg):
+    return ParTest.findMax(*arg, **kwarg)
+
+class ParTest:
+    def maxFunc(self,d,m,n):
+        '''
+        Simple function to maximize over d, given m, n.
+        '''
+        return (d - max(m,n))**2
+    
+    def findMax(self,m,n):
+        '''
+        wrapper that uses basinhopper to maximize maxFunc
+        '''
+        return basinhopping(maxFunc,0,
+                                minimizer_kwargs={"bounds":((-n,8),),
+                                                  "args":(m,n)}).x
+    
+    def parMax(self,m,n):
+        '''
+        Try to do parallel processing from within a method of a class
+        '''
+        n_cpus = mp.cpu_count()
+        pool = mp.Pool(processes=n_cpus)
+        mm = np.repeat(np.array(m),len(n))
+        nn = np.tile(np.array(n),len(m))
+        d3 = [pool.apply(unwrap_self, args=(i,)) for i in zip([self]*len(mm),mm,nn)]
+        self.d3 = d3
+
+parT = ParTest()
+
+parT.parMax(M,N)
+
+parT.d3    
+        

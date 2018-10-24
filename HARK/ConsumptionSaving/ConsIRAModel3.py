@@ -575,6 +575,15 @@ class TerminalValueFunc2D(HARKobject):
             inputs m and p.
         '''
         return utility(self.cFunc(m,n),gam=self.CRRA)
+    
+def unwrap_self(arg, **kwarg):
+    '''
+    Auxiliary function needed in order to run the multiprocessing command Pool
+    within a method of a class below. This gets around Pool having to call a
+    method, i.e. self.findArgMaxv. Multiprocessing needs functions that can be 
+    called in a global context, in order to "pickle."
+    '''
+    return ConsIRASolver.findArgMaxv(*arg, **kwarg)
 
 class ConsIRASolver(ConsIndShockSolver):
     '''
@@ -1202,11 +1211,14 @@ class ConsIRASolver(ConsIndShockSolver):
             mNrm = self.aNrmNowUniform
             nNrm = self.bNrmNow
             
+            # Use parallel processing to speed this step up
             pool = mp.Pool(processes=mp.cpu_count)
             
-            # Use parallel processing to speed this step up
-            dNrm_list = [pool.apply(self.findArgMaxv, args=(m,n,)) 
-                                                for n in nNrm for m in mNrm]
+            n_repeat = np.repeat(np.asarray(nNrm),len(mNrm))
+            m_tile = np.tile(np.asarray(mNrm),len(nNrm))
+            
+            dNrm_list = [pool.apply(unwrap_self, args=(i,)) 
+                         for i in zip([self]*len(n_repeat),n_repeat,m_tile)]
             
             dNrm = np.asarray(dNrm_list).reshape(len(nNrm),len(mNrm))
             dNrm_trans = np.transpose(dNrm)
