@@ -62,9 +62,21 @@ end_time = clock()
 print('Solving with multithreading took ' + mystr(end_time-start_time) + ' seconds.')
 
 def unwrap_self(arg, **kwarg):
+    '''
+    Auxiliary function needed in order to run the multiprocessing command Pool
+    within a method of a class below. This gets around Pool having to call a
+    method, i.e. self.findArgMaxv. Multiprocessing needs functions that can be 
+    called in a global context, in order to "pickle."
+    '''
     return ParTest.findMax(*arg, **kwarg)
 
+
 class ParTest:
+    
+    def __init__(self,m,n):
+        self.m = m
+        self.n = n
+    
     def maxFunc(self,d,m,n):
         '''
         Simple function to maximize over d, given m, n.
@@ -75,14 +87,17 @@ class ParTest:
         '''
         wrapper that uses basinhopper to maximize maxFunc
         '''
-        return basinhopping(maxFunc,0,
+        return basinhopping(self.maxFunc,0.0,
                                 minimizer_kwargs={"bounds":((-n,8),),
                                                   "args":(m,n)}).x
     
-    def parMax(self,m,n):
+    def parMax(self):
         '''
         Try to do parallel processing from within a method of a class
         '''
+        m = self.m
+        n = self.n
+        
         n_cpus = mp.cpu_count()
         pool = mp.Pool(processes=n_cpus)
         mm = np.repeat(np.array(m),len(n))
@@ -90,9 +105,9 @@ class ParTest:
         d3 = [pool.apply(unwrap_self, args=(i,)) for i in zip([self]*len(mm),mm,nn)]
         self.d3 = d3
 
-parT = ParTest()
+parT = ParTest(M,N)
 
-parT.parMax(M,N)
+parT.parMax()
 
 parT.d3    
         
