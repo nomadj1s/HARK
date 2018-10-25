@@ -276,8 +276,8 @@ class ConsIRASolver(ConsIndShockSolver):
         -------
         none
         '''
-        mNrm = aNrmNowUniform
-        nNrm = bNrmNow
+        mNrm = self.aNrmNowUniform
+        nNrm = self.bNrmNow
             
         # Use parallel processing to speed this step up
         n_cpus = mp.cpu_count()
