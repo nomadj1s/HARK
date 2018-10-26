@@ -1814,10 +1814,10 @@ def main():
     IRAexample.solve()
     end_time = clock()
     end_time2 = time()
-    print('Solving an IRA consumer took ' + mystr(end_time-start_time/3600) +\
+    print('Solving an IRA consumer took ' + mystr((end_time-start_time)/3600)+\
           ' processor hours.')
-    print('Solving an IRA consumer took ' + mystr(end_time2-start_time2/3600)+\
-          ' real hours.')
+    print('Solving an IRA consumer took ' +\
+          mystr((end_time2-start_time2)/3600)+ ' real hours.')
     
     # Plot the consumption functions during working life
     def makecFuncm(n):
