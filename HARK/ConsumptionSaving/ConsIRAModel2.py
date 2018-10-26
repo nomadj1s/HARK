@@ -25,7 +25,7 @@ from time import clock, time
 from joblib import Parallel, delayed
 import dill as pickle
 import multiprocessing as mp
-from pathos.pools import _ProcessPool
+from pathos.multiprocessing import ProcessPool
 
 import sys 
 import os
@@ -1204,7 +1204,7 @@ class ConsIRASolver(ConsIndShockSolver):
             nNrm = self.bNrmNow
             
             n_cpus = mp.cpu_count()
-            pool = _ProcessPool(processes=n_cpus)
+            pool = ProcessPool(processes=n_cpus)
            
             dNrm_list = [pool.apply(self.findArgMaxv, args=(m,n))
                          for n in nNrm for m in mNrm]
