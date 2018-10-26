@@ -24,7 +24,8 @@ from scipy.optimize import basinhopping
 from time import clock, time
 from joblib import Parallel, delayed
 import dill as pickle
-import multiprocessing
+import multiprocessing as mp
+from pathos.pools import _ProcessPool
 
 import sys 
 import os
@@ -1202,12 +1203,13 @@ class ConsIRASolver(ConsIndShockSolver):
             mNrm = self.aNrmNowUniform
             nNrm = self.bNrmNow
             
-            n_cpus = multiprocessing.cpu_count()
+            n_cpus = mp.cpu_count()
+            pool = _ProcessPool(processes=n_cpus)
            
-            dNrm_list = Parallel(n_jobs=n_cpus)(delayed(self.findArgMaxv)(m,n) 
-                                                for n in nNrm for m in mNrm)
+            dNrm_list = [pool.apply(self.findArgMaxv, args=(m,n))
+                         for n in nNrm for m in mNrm]
             
-            dNrm = np.asarray(dNrm_list).reshape(len(nNrm),len(mNrm))
+            dNrm = np.array(dNrm_list).reshape(len(nNrm),len(mNrm))
             dNrm_trans = np.transpose(dNrm)
             
             self.cFuncNow = ConsIRAPolicyFunc(mNrm,nNrm,dNrm_trans,self.MaxIRA,
