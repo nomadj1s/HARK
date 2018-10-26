@@ -1205,9 +1205,11 @@ class ConsIRASolver(ConsIndShockSolver):
             
             n_cpus = mp.cpu_count()
             pool = ProcessPool(processes=n_cpus)
+            
+            n_repeat = np.repeat(np.array(nNrm),len(mNrm))
+            m_tile = np.tile(np.array(mNrm),len(nNrm))
            
-            dNrm_list = [pool.apply(self.findArgMaxv, args=(m,n))
-                         for n in nNrm for m in mNrm]
+            dNrm_list = pool.map(self.findArgMaxv, n_repeat, m_tile)
             
             dNrm = np.array(dNrm_list).reshape(len(nNrm),len(mNrm))
             dNrm_trans = np.transpose(dNrm)

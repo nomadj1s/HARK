@@ -8,7 +8,7 @@ from builtins import zip
 
 import numpy as np 
 import multiprocessing as mp
-from pathos.pools import _ProcessPool
+from pathos.pools import ProcessPool
 from scipy.optimize import basinhopping
 
 import sys 
@@ -57,11 +57,11 @@ class ParTest:
         n = self.n
         
         n_cpus = mp.cpu_count()
-        pool = _ProcessPool(processes=n_cpus)
-        #mm = np.repeat(np.array(m),len(n))
-        #nn = np.tile(np.array(n),len(m))
+        pool = ProcessPool(processes=n_cpus)
+        mm = np.repeat(np.array(m),len(n))
+        nn = np.tile(np.array(n),len(m))
         #d3_ = [pool.apply(unwrap_self, args=(i,)) for i in zip([self]*len(mm),mm,nn)]
-        d3_ = [pool.apply(self.findMax,args=(mi,ni)) for mi in m for ni in n]
+        d3_ = pool.map(self.findMax, mm, nn)
         d3 = np.array(d3_).reshape(len(m),len(n))
         self.d3 = d3
         
