@@ -22,7 +22,6 @@ from copy import copy, deepcopy
 import numpy as np
 from scipy.optimize import basinhopping
 from time import clock, time
-from joblib import Parallel, delayed
 import dill as pickle
 import multiprocessing as mp
 from pathos.multiprocessing import ProcessPool
