@@ -1804,7 +1804,7 @@ def main():
     do_simulation = True
 
     # Make and solve an example IRA consumer
-    IRAexample = IRAConsumerType(**Params.init_IRA_40)
+    IRAexample = IRAConsumerType(**Params.init_IRA_30)
     IRAexample.cycles = 1 # Make this consumer live a sequence of periods
                           # exactly once
     
@@ -1823,24 +1823,24 @@ def main():
         def cm(m):
             m = np.asarray(m)
             ni = n*np.ones(len(m))
-            return IRAexample.solution[25].cFunc(m,ni)
+            return IRAexample.solution[18].cFunc(m,ni)
         return cm
     
     print('Consumption function in period 25 for different values of n')
     plotFuncs([makecFuncm(n) for n in [0,1,2]],
-               IRAexample.solution[25].mNrmMin,5,
+               IRAexample.solution[18].mNrmMin,5,
                legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
 
     def makedFuncm(n):
         def dm(m):
             m = np.asarray(m)
             ni = n*np.ones(len(m))
-            return IRAexample.solution[25].dFunc(m,ni)
+            return IRAexample.solution[18].dFunc(m,ni)
         return dm
     
     print('Consumption function in period 25 for different values of n')
     plotFuncs([makedFuncm(n) for n in [0,1,2]],
-               IRAexample.solution[25].mNrmMin,5,
+               IRAexample.solution[18].mNrmMin,5,
                legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
 
     # Simulate some data; results stored in mNrmNow_hist, nNrmNow_hist, 

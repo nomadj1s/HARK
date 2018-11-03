@@ -153,6 +153,74 @@ init_IRA_10 = { 'CRRA': CRRA,
             }
 
 # -----------------------------------------------------------------------------
+# --- Define all of the parameters for the 30 period consumption IRA model ----
+# -----------------------------------------------------------------------------
+
+
+                                    
+LivPrb = 30*[1]                     # Survival probability
+T_age = 31                          # Age after which simulated agents are 
+                                    # automatically killed
+T_cycle = 30                        # Number of periods in the cycle for this 
+                                    # agent type
+
+PermGroFac = 30*[1.01]              # Standard deviation of log permanent 
+                                    # income shocks
+PermShkStd = 26*[0.15] + 4*[0]      # Standard deviation of log transitory 
+                                    # income shocks
+TranShkStd = 26*[0.2] + 4*[0]
+
+T_retire = 26                       # Period of retirement (0 --> no 
+                                    # retirement)
+                                    
+T_ira = 22                          # Period of IRA penalty expiration
+
+# Make a dictionary to specify an IRA consumer type
+init_IRA_30 = { 'CRRA': CRRA,
+             'Rsave' : Rsave,
+             'Rboro' : Rboro,
+             'Rira' : Rira,
+             'DiscFac': DiscFac,
+             'LivPrb': LivPrb,
+             'PermGroFac': PermGroFac,
+             'AgentCount': AgentCount,
+             'aXtraMin': aXtraMin,
+             'aXtraMax': aXtraMax,
+             'aXtraNestFac':aXtraNestFac,
+             'aXtraCount': aXtraCount,
+             'aXtraExtra': [aXtraExtra],
+             'bXtraMin': aXtraMin,
+             'bXtraMax': aXtraMax,
+             'bXtraNestFac':aXtraNestFac,
+             'bXtraCount': aXtraCount,
+             'bXtraExtra': [aXtraExtra],
+             'PermShkStd': PermShkStd,
+             'PermShkCount': PermShkCount,
+             'TranShkStd': TranShkStd,
+             'TranShkCount': TranShkCount,
+             'UnempPrb': UnempPrb,
+             'UnempPrbRet': UnempPrbRet,
+             'IncUnemp': IncUnemp,
+             'IncUnempRet': IncUnempRet,
+             'BoroCnstArt': BoroCnstArt,
+             'tax_rate': tax_rate,
+             'vFuncBool':vFuncBool,
+             'CubicBool':CubicBool,
+             'T_retire':T_retire,
+             'aNrmInitMean' : aNrmInitMean,
+             'aNrmInitStd' : aNrmInitStd,
+             'pLvlInitMean' : pLvlInitMean,
+             'pLvlInitStd' : pLvlInitStd,
+             'PermGroFacAgg' : PermGroFacAgg,
+             'T_age' : T_age,
+             'T_cycle' : T_cycle,
+             'T_ira' : T_ira,
+             'PenIRAFixed' : PenIRAFixed,
+             'MaxIRA' : MaxIRA
+            }
+
+
+# -----------------------------------------------------------------------------
 # --- Define all of the parameters for the 40 period consumption IRA model ----
 # -----------------------------------------------------------------------------
 
@@ -172,6 +240,8 @@ TranShkStd = 35*[0.2] + 5*[0]
 
 T_retire = 36                       # Period of retirement (0 --> no 
                                     # retirement)
+
+T_ira = 30                          # Period of IRA penalty expiration
 
 # Make a dictionary to specify an IRA consumer type
 init_IRA_40 = { 'CRRA': CRRA,
