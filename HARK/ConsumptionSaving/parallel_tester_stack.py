@@ -18,15 +18,6 @@ sys.path.insert(0, os.path.abspath('./'))
 
 from scipy.interpolate import interp1d
 
-def unwrap_self(arg, **kwarg):
-    '''
-    Auxiliary function needed in order to run the multiprocessing command Pool
-    within a method of a class below. This gets around Pool having to call a
-    method, i.e. self.findArgMaxv. Multiprocessing needs functions that can be 
-    called in a global context, in order to "pickle."
-    '''
-    return ParTest.findMax(*arg, **kwarg)
-
 
 class ParTest:
     
@@ -66,9 +57,9 @@ class ParTest:
         self.d3 = d3
         
 M = np.arange(1,8,1)
-N = np.arange(1,10,1)
+N = np.arange(1,8,1)
 
-solution = interp1d(M,N[(len(N)-len(M)):])
+solution = interp1d(M,N)
 
 parT = ParTest(M,N,solution)
 
