@@ -1855,7 +1855,12 @@ def main():
         IRAexample.initializeSim()
         IRAexample.simulate()
     
-
+    np.savetxt('IRA_Results/m.csv',IRAexample.mNrmNow_hist,delimiter=',')
+    np.savetxt('IRA_Results/n.csv',IRAexample.nNrmNow_hist,delimiter=',')
+    np.savetxt('IRA_Results/c.csv',IRAexample.cNrmNow_hist,delimiter=',')
+    np.savetxt('IRA_Results/d.csv',IRAexample.dNrmNow_hist,delimiter=',')
+    np.savetxt('IRA_Results/p.csv',IRAexample.pLvlNow_hist,delimiter=',')
+    np.savetxt('IRA_Results/t.csv',IRAexample.t_age_hist,delimiter=',')
         
     pickle.dump_session('IRA_30.pkl')
         
