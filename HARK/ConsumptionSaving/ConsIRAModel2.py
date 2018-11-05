@@ -1807,6 +1807,9 @@ def main():
     IRAexample = IRAConsumerType(**Params.init_IRA_30)
     IRAexample.cycles = 1 # Make this consumer live a sequence of periods
                           # exactly once
+                          
+    # Extend the memory
+    sys.setrecursionlimit(2000)
     
     start_time = clock()
     start_time2 = time()
