@@ -1854,8 +1854,10 @@ def main():
                                  'pLvlNow','t_age']
         IRAexample.initializeSim()
         IRAexample.simulate()
+    
+
         
-    pickle.dump_session('IRA_40.pkl')
+    pickle.dump_session('IRA_30.pkl')
         
 if __name__ == '__main__':
     main()
