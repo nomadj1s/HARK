@@ -1804,7 +1804,7 @@ def main():
     do_simulation = True
 
     # Make and solve an example IRA consumer
-    IRAexample = IRAConsumerType(**Params.init_IRA_30)
+    IRAexample = IRAConsumerType(**Params.init_IRA_40)
     IRAexample.cycles = 1 # Make this consumer live a sequence of periods
                           # exactly once
                           
@@ -1855,14 +1855,14 @@ def main():
         IRAexample.initializeSim()
         IRAexample.simulate()
     
-    np.savetxt('IRA_Results/m.csv',IRAexample.mNrmNow_hist,delimiter=',')
-    np.savetxt('IRA_Results/n.csv',IRAexample.nNrmNow_hist,delimiter=',')
-    np.savetxt('IRA_Results/c.csv',IRAexample.cNrmNow_hist,delimiter=',')
-    np.savetxt('IRA_Results/d.csv',IRAexample.dNrmNow_hist,delimiter=',')
-    np.savetxt('IRA_Results/p.csv',IRAexample.pLvlNow_hist,delimiter=',')
-    np.savetxt('IRA_Results/t.csv',IRAexample.t_age_hist,delimiter=',')
+    np.savetxt('IRA_Results/m_40.csv',IRAexample.mNrmNow_hist,delimiter=',')
+    np.savetxt('IRA_Results/n_40.csv',IRAexample.nNrmNow_hist,delimiter=',')
+    np.savetxt('IRA_Results/c_40.csv',IRAexample.cNrmNow_hist,delimiter=',')
+    np.savetxt('IRA_Results/d_40.csv',IRAexample.dNrmNow_hist,delimiter=',')
+    np.savetxt('IRA_Results/p_40.csv',IRAexample.pLvlNow_hist,delimiter=',')
+    np.savetxt('IRA_Results/t_40.csv',IRAexample.t_age_hist,delimiter=',')
         
-    pickle.dump_session('IRA_30.pkl')
+    pickle.dump_session('IRA_40.pkl')
         
 if __name__ == '__main__':
     main()
