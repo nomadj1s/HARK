@@ -17,7 +17,6 @@ from __future__ import print_function
 from __future__ import absolute_import
 from builtins import str
 from builtins import range
-from builtins import object
 from copy import copy, deepcopy
 import numpy as np
 from scipy.optimize import basinhopping
@@ -31,17 +30,14 @@ import os
 sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('./'))
 
-from core import AgentType, NullFunc, HARKobject
-from interpolation import CubicInterp, LowerEnvelope, LinearInterp,\
-                           BilinearInterp, ConstantFunction
+from core import NullFunc, HARKobject
+from interpolation import LinearInterp, BilinearInterp, ConstantFunction
 from ConsIndShockModel import ConsIndShockSolver, constructAssetsGrid,\
                               IndShockConsumerType
-from simulation import drawDiscrete, drawBernoulli, drawLognormal, drawUniform
-from utilities import approxMeanOneLognormal, addDiscreteOutcomeConstantMean,\
-                           combineIndepDstns, makeGridExpMult, CRRAutility, \
-                           CRRAutilityP, CRRAutilityPP, CRRAutilityP_inv, \
-                           CRRAutility_invP, CRRAutility_inv, \
-                           CRRAutilityP_invP, plotFuncs 
+from simulation import drawLognormal
+from utilities import CRRAutility, CRRAutilityP, CRRAutilityPP, \
+                      CRRAutilityP_inv, CRRAutility_invP, \
+                      CRRAutility_inv, CRRAutilityP_invP, plotFuncs 
 
 utility       = CRRAutility
 utilityP      = CRRAutilityP
@@ -64,7 +60,7 @@ class ConsIRASolution(HARKobject):
     '''
     distance_criteria = ['cFunc','dFunc']
     
-    def __init__(self, cFunc=None, dFunc=None, policyFunc = None, vFunc=None, 
+    def __init__(self, cFunc=None, dFunc=None, policyFunc=None, vFunc=None, 
                  vPfunc=None, vPPfunc=None, mNrmMin=None, hNrm=None, 
                  MPCmin=None, MPCmax=None):
         '''
@@ -137,9 +133,9 @@ class ConsIRASolution(HARKobject):
         
 class PureConsumptionFunc(HARKobject):
     '''
-    A class for representing a pure consumption function.  The underlying 
+    A class for representing a pure consumption function. The underlying 
     interpolation is in the space of (l,b). If b is degenerate, uses
-    LinearInterp. If b is not degenerate, uses interp2d. When l <
+    LinearInterp. If b is not degenerate, uses BilinearInterp. When l <
     l_min(b), returns c = 0.
     '''
     distance_criteria = ['interpolator']
@@ -286,14 +282,14 @@ class EndOfPeriodValueFunc(HARKobject):
         else:
             w = self.interpolator(a,b)
         
-        # Set w to u(0.0001) if m is below asset minimum
+        # Set w to u(0.0001) if a is below asset minimum
         w[a <= self.aMin(np.asarray(b))] = self.u(0.0001)
             
         return w
             
 class ConsIRAPolicyFunc(HARKobject):
     '''
-    A class for representing the optimal consumtion and deposit/withdrawal 
+    A class for representing the optimal consumption and deposit/withdrawal 
     functions.  The underlying interpolation is in the space of (m,n). If n is 
     degenerate, uses LinearInterp for consumption. If n is not degenerate, uses 
     BilinearInterp for consumption and deposit/withdrawal. Always obeys:
@@ -301,6 +297,8 @@ class ConsIRAPolicyFunc(HARKobject):
         l = m - (1-t(d))*d
         b = n + d
         c = c(l,b)
+        
+        t(d) = t*(d < 0)
         
     '''
     distance_criteria = ['m_list','n_list','d_list','cFuncPure']
@@ -324,6 +322,8 @@ class ConsIRAPolicyFunc(HARKobject):
             (Normalized) deposit/withdrawal points for interpolation.
         MaxIRA : float
             (Nomralized) maximum allowable IRA deposit, d <= MaxIRA.
+        PenIRA : float
+            Penalty for withdrawing IRA in this period (could be zero)
         cFucnPure : float
             (Nomralized) consumption as a function of illiquid assets, l, and
             end-of-period illiquid assets, b.
@@ -448,10 +448,11 @@ class ValueFuncIRA(HARKobject):
         Parameters
         ----------
         dFunc : function
-            A real function representing optimal deposit/withdrawal n given m 
+            A real function representing optimal deposit/withdrawal d given m 
             and n.
-        makevOfdFunc : function
+        makeNegvOfdFunc : function
            Calculate beginning-of-period value function given d, m, and n.
+           Multiply it by -1 for use with minimizer tools, hence the "Neg".
 
         Returns
         -------
@@ -464,7 +465,8 @@ class ValueFuncIRA(HARKobject):
     def __call__(self,m,n):
         '''
         Evaluate the value function at given levels of liquid resources m and
-        illiquid resource n.
+        illiquid resource n. Since we use the "Neg" of the value function, we
+        multiply it by -1 to get back the right-signed value function.
 
         Parameters
         ----------
@@ -668,7 +670,7 @@ class ConsIRASolver(ConsIndShockSolver):
         self.notation = {'a': 'liquid assets after all actions',
                          'b': 'illiquid assets after all actions',
                          'm': 'liquid market resources at decision time',
-                         'n': 'illiduid market resources at decisiont time',
+                         'n': 'illiduid market resources at decision time',
                          'l': 'liquid market resource at decision time, net \
                                of illiquid deposits/withdrawals',
                          'c': 'consumption',

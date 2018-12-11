@@ -17,12 +17,10 @@ from __future__ import print_function
 from __future__ import absolute_import
 from builtins import str
 from builtins import range
-from builtins import object
 from copy import copy, deepcopy
 import numpy as np
 from scipy.optimize import basinhopping
 from time import clock, time
-from joblib import Parallel, delayed
 import dill as pickle
 import multiprocessing as mp
 
@@ -31,12 +29,11 @@ import os
 sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('./'))
 
-from core import AgentType, NullFunc, HARKobject
-from interpolation import CubicInterp, LowerEnvelope, LinearInterp,\
-                           BilinearInterp, ConstantFunction
+from core import NullFunc, HARKobject
+from interpolation import LinearInterp, BilinearInterp, ConstantFunction
 from ConsIndShockModel import ConsIndShockSolver, constructAssetsGrid,\
                               IndShockConsumerType
-from simulation import drawDiscrete, drawBernoulli, drawLognormal, drawUniform
+from simulation import drawLognormal
 from utilities import approxMeanOneLognormal, addDiscreteOutcomeConstantMean,\
                            combineIndepDstns, makeGridExpMult, CRRAutility, \
                            CRRAutilityP, CRRAutilityPP, CRRAutilityP_inv, \
@@ -1803,8 +1800,8 @@ class IRAConsumerType(IndShockConsumerType):
 
 def unwrap_self(arg, **kwarg):
     '''
-    Auxiliary function needed in order to run the multiprocessing command Pool
-    within a method of a class below. This gets around Pool having to call a
+    Auxiliary function needed in order to run the multiprocessing command 
+    "Pool" within the method of a class. This gets around Pool having to call a
     method, i.e. self.findArgMaxv. Multiprocessing needs functions that can be 
     called in a global context, in order to "pickle."
     '''

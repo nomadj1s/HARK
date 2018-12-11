@@ -3,7 +3,6 @@ Specifies examples of the full set of parameters required to solve the
 ConsIRAModel.
 '''
 from __future__ import division, print_function
-from copy import copy
 import numpy as np
 
 import sys 
@@ -286,6 +285,11 @@ init_IRA_40 = { 'CRRA': CRRA,
              'PenIRAFixed' : PenIRAFixed,
              'MaxIRA' : MaxIRA
             }
+
+# -----------------------------------------------------------------------------
+# --- Define all of the parameters for the a one-period IRA model for ---------
+# --- testing purposes --------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 def cFunc_terminal(m,n):
     return m + n
