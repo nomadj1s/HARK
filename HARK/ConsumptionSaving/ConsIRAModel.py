@@ -592,7 +592,8 @@ class ConsIRASolver(ConsIndShockSolver):
     '''
     def __init__(self,solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,Rsave,
                      Rira,PenIRA,MaxIRA,DistIRA,PermGroFac,BoroCnstArt,
-                     aXtraGrid,bXtraGrid,lXtraGrid,vFuncBool,CubicBool):
+                     aXtraGrid,bXtraGrid,lXtraGrid,vFuncBool,CubicBool,
+                     ParallelBool):
         '''
         Constructor for a new solver for problems with risky income, a liquid
         and IRA-like illiquid savings account, different interest rates on 
@@ -695,7 +696,7 @@ class ConsIRASolver(ConsIndShockSolver):
         self.DistIRA      = DistIRA
         self.bXtraGrid    = bXtraGrid
         self.lXtraGrid    = lXtraGrid
-        #self.ParallelBool = ParallelBool
+        self.ParallelBool = ParallelBool
         
     def defBoroCnst(self,BoroCnstArt):
         '''
@@ -988,7 +989,7 @@ class ConsIRASolver(ConsIndShockSolver):
             [np.transpose(np.tile(x,(lNrmCount,1,1)),(1,0,2)) for x in 
              [lNrm_ik,cNrm_ik,aNrmNow,EndOfPrdv]]
         
-        # Find where l_j in [l_ik , l_i+1k]
+        # Find where l_j is in [l_ik , l_i+1k]
         lNrm_j_temp = np.tile(lNrm_j[:,None],(self.bNrmCount,1,1))
         lNrm_j_mask = (lNrm_j_temp > lNrm_ik_temp[:,:,:-1]) \
                         & ~(lNrm_j_temp > lNrm_ik_temp[:,:,1:])
@@ -1208,13 +1209,16 @@ class ConsIRASolver(ConsIndShockSolver):
             mNrm = self.aNrmNowUniform
             nNrm = self.bNrmNow
             
-            n_cpus = mp.cpu_count()
-            pool = ProcessPool(processes=n_cpus)
-            
             n_repeat = np.repeat(np.array(nNrm),len(mNrm))
             m_tile = np.tile(np.array(mNrm),len(nNrm))
            
-            dNrm_list = pool.map(self.findArgMaxv, n_repeat, m_tile)
+            if self.ParallelBool:
+                n_cpus = mp.cpu_count()
+                pool = ProcessPool(processes=n_cpus)
+                dNrm_list = pool.map(self.findArgMaxv, m_tile, n_repeat)
+            else:
+                dNrm_list = [[self.findArgMaxv(m,n) for m in mNrm] 
+                                                    for n in nNrm]
             
             dNrm = np.array(dNrm_list).reshape(len(nNrm),len(mNrm))
             dNrm_trans = np.transpose(dNrm)
