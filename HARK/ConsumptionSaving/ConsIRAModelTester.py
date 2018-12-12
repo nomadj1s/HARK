@@ -77,14 +77,15 @@ ira_params = { 'solution_next' : solution_terminal,
                 'PermGroFac' : 1.1,
                 'BoroCnstArt' : None,
                 'aXtraGrid' : np.array([.1,.5,1,2,3,4]),
-                #'bXtraGrid' : np.array([.5,1,2,3]),
-                'bXtraGrid' : np.array([]),
+                'bXtraGrid' : np.array([.5,1,2,3]),
+                #'bXtraGrid' : np.array([]),
                 'lXtraGrid' : np.array([.5,.75,1,2,3]),
                 #'aXtraGrid' : aXtraGrid,
                 #'bXtraGrid' : bXtraGrid,
                 #'lXtraGrid' : lXtraGrid,
                 'vFuncBool' : True,
-                'CubicBool' : True
+                'CubicBool' : True,
+                'ParallelBool' : True
                 }
 
 ex = ConsIRASolver(**ira_params)
@@ -97,7 +98,7 @@ ex.makePurecFunc(cNrm,lNrm,ex.bNrmNow)
 ex.makeEndOfPrdvFunc(EndOfPrdv)
 mystr = lambda number : "{:.4f}".format(number)
 start_time = time()
-ex.makecAnddFunc()
+ex.makePolicyFunc()
 end_time = time()
 print('Solving a consumer with liquid and illiquid accounts took ' + mystr((end_time-start_time)/3600) + ' hours.')
 
