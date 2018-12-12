@@ -4,6 +4,7 @@ ConsIRAModel.
 '''
 from __future__ import division, print_function
 import numpy as np
+from copy import copy
 
 import sys 
 import os
@@ -364,6 +365,16 @@ init_IRA_30_simp = { 'CRRA': CRRA,
                      'PenIRAFixed' : PenIRAFixed,
                      'MaxIRA' : MaxIRA
                      }
+
+# -----------------------------------------------------------------------------
+# --- Define all of the parameters for the 30 period consumption IRA model, ---
+# --- simplified version to check against the standard ConsInd model. ---------
+# --- This one turns off parallel processing. ---------------------------------
+# -----------------------------------------------------------------------------
+
+init_IRA_30_simp_noMP = copy(init_IRA_30_simp)
+init_IRA_30_simp_noMP['ParallelBool'] = False # Turn off parallel
+
 
 # -----------------------------------------------------------------------------
 # --- Define all of the parameters for a 30 period, kinked lifecycle ----------
