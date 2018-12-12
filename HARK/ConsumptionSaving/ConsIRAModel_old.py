@@ -17,10 +17,12 @@ from __future__ import print_function
 from __future__ import absolute_import
 from builtins import str
 from builtins import range
+from builtins import object
 from copy import copy, deepcopy
 import numpy as np
 from scipy.optimize import basinhopping
 from time import clock, time
+import dill as pickle
 import multiprocessing as mp
 from pathos.multiprocessing import ProcessPool
 
@@ -29,14 +31,17 @@ import os
 sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('./'))
 
-from core import NullFunc, HARKobject
-from interpolation import LinearInterp, BilinearInterp, ConstantFunction
+from core import AgentType, NullFunc, HARKobject
+from interpolation import CubicInterp, LowerEnvelope, LinearInterp,\
+                           BilinearInterp, ConstantFunction
 from ConsIndShockModel import ConsIndShockSolver, constructAssetsGrid,\
                               IndShockConsumerType
-from simulation import drawLognormal
-from utilities import CRRAutility, CRRAutilityP, CRRAutilityPP, \
-                      CRRAutilityP_inv, CRRAutility_invP, \
-                      CRRAutility_inv, CRRAutilityP_invP, plotFuncs 
+from simulation import drawDiscrete, drawBernoulli, drawLognormal, drawUniform
+from utilities import approxMeanOneLognormal, addDiscreteOutcomeConstantMean,\
+                           combineIndepDstns, makeGridExpMult, CRRAutility, \
+                           CRRAutilityP, CRRAutilityPP, CRRAutilityP_inv, \
+                           CRRAutility_invP, CRRAutility_inv, \
+                           CRRAutilityP_invP, plotFuncs 
 
 utility       = CRRAutility
 utilityP      = CRRAutilityP
@@ -53,18 +58,16 @@ class ConsIRASolution(HARKobject):
     savings account. The solution must include a consumption function, an
     optimal illiquid deposit function, value function and marginal value 
     function.
-
     Here and elsewhere in the code, Nrm indicates that variables are normalized
     by permanent income.
     '''
     distance_criteria = ['cFunc','dFunc']
     
-    def __init__(self, cFunc=None, dFunc=None, policyFunc=None, vFunc=None, 
+    def __init__(self, cFunc=None, dFunc=None, policyFunc = None, vFunc=None, 
                  vPfunc=None, vPPfunc=None, mNrmMin=None, hNrm=None, 
                  MPCmin=None, MPCmax=None):
         '''
         The constructor for a new ConsumerIRASolution object.
-
         Parameters
         ----------
         cFunc : function
@@ -101,7 +104,6 @@ class ConsIRASolution(HARKobject):
         MPCmax : float
             Supremum of the marginal propensity to consume from m this period.
             MPC --> MPCmax as m --> mNrmMin.
-
         Returns
         -------
         None
@@ -132,9 +134,9 @@ class ConsIRASolution(HARKobject):
         
 class PureConsumptionFunc(HARKobject):
     '''
-    A class for representing a pure consumption function. The underlying 
+    A class for representing a pure consumption function.  The underlying 
     interpolation is in the space of (l,b). If b is degenerate, uses
-    LinearInterp. If b is not degenerate, uses BilinearInterp. When l <
+    LinearInterp. If b is not degenerate, uses interp2d. When l <
     l_min(b), returns c = 0.
     '''
     distance_criteria = ['interpolator']
@@ -144,7 +146,6 @@ class PureConsumptionFunc(HARKobject):
         '''
         Constructor for a pure consumption function, c(l,b). Uses 1D
         interpolation when b is degenerate and 2D when b is not degenerate.
-
         Parameters
         ----------
         l_list : np.array
@@ -181,14 +182,12 @@ class PureConsumptionFunc(HARKobject):
         '''
         Evaluate the pure consumption function at given levels of liquid 
         market resources l and illiquid assets b.
-
         Parameters
         ----------
         l : float or np.array
             Liquid market resources (normalized by permanent income).
         b : flot or np.array
             Illiquid market resources (normalized by permanent income)
-
         Returns
         -------
         c : float or np.array
@@ -220,7 +219,6 @@ class EndOfPeriodValueFunc(HARKobject):
                  slope_limit=None):
         '''
         Constructor for a end-of-period value function, w(a,b).
-
         Parameters
         ----------
         a_list : np.array
@@ -260,14 +258,12 @@ class EndOfPeriodValueFunc(HARKobject):
         '''
         Evaluate the end-of-period value function at given levels of liquid 
         market resources a and illiquid assets b.
-
         Parameters
         ----------
         a : float or np.array
             Liquid market resources (normalized by permanent income).
         b : flot or np.array
             Illiquid market resources (normalized by permanent income)
-
         Returns
         -------
         w : float or np.array
@@ -281,14 +277,14 @@ class EndOfPeriodValueFunc(HARKobject):
         else:
             w = self.interpolator(a,b)
         
-        # Set w to u(0.0001) if a is below asset minimum
+        # Set w to u(0.0001) if m is below asset minimum
         w[a <= self.aMin(np.asarray(b))] = self.u(0.0001)
             
         return w
             
 class ConsIRAPolicyFunc(HARKobject):
     '''
-    A class for representing the optimal consumption and deposit/withdrawal 
+    A class for representing the optimal consumtion and deposit/withdrawal 
     functions.  The underlying interpolation is in the space of (m,n). If n is 
     degenerate, uses LinearInterp for consumption. If n is not degenerate, uses 
     BilinearInterp for consumption and deposit/withdrawal. Always obeys:
@@ -296,8 +292,6 @@ class ConsIRAPolicyFunc(HARKobject):
         l = m - (1-t(d))*d
         b = n + d
         c = c(l,b)
-        
-        t(d) = t*(d < 0)
         
     '''
     distance_criteria = ['m_list','n_list','d_list','cFuncPure']
@@ -308,7 +302,6 @@ class ConsIRAPolicyFunc(HARKobject):
         Constructor for consumption and deposit/withdrawal functions, c(m,n)
         and d(m,n). Uses LinearInterp for c(m,n) interpolation when n is 
         degenerate and BilinearInterp when n is not degenerate.
-
         Parameters
         ----------
         m_list : np.array
@@ -321,8 +314,6 @@ class ConsIRAPolicyFunc(HARKobject):
             (Normalized) deposit/withdrawal points for interpolation.
         MaxIRA : float
             (Nomralized) maximum allowable IRA deposit, d <= MaxIRA.
-        PenIRA : float
-            Penalty for withdrawing IRA in this period (could be zero)
         cFucnPure : float
             (Nomralized) consumption as a function of illiquid assets, l, and
             end-of-period illiquid assets, b.
@@ -349,14 +340,12 @@ class ConsIRAPolicyFunc(HARKobject):
         '''
         Evaluate the consumption and deposit/withdrawal function at given 
         levels of liquid market resources m and illiquid assets n.
-
         Parameters
         ----------
         m : float or np.array
             Liquid market resources (normalized by permanent income).
         n : flot or np.array
             Illiquid market resources (normalized by permanent income)
-
         Returns
         -------
         c : float or np.array
@@ -443,16 +432,13 @@ class ValueFuncIRA(HARKobject):
     def __init__(self,dFunc,makeNegvOfdFunc,PenIRA):
         '''
         Constructor for a new value function object.
-
         Parameters
         ----------
         dFunc : function
-            A real function representing optimal deposit/withdrawal d given m 
+            A real function representing optimal deposit/withdrawal n given m 
             and n.
-        makeNegvOfdFunc : function
+        makevOfdFunc : function
            Calculate beginning-of-period value function given d, m, and n.
-           Multiply it by -1 for use with minimizer tools, hence the "Neg".
-
         Returns
         -------
         None
@@ -464,16 +450,13 @@ class ValueFuncIRA(HARKobject):
     def __call__(self,m,n):
         '''
         Evaluate the value function at given levels of liquid resources m and
-        illiquid resource n. Since we use the "Neg" of the value function, we
-        multiply it by -1 to get back the right-signed value function.
-
+        illiquid resource n.
         Parameters
         ----------
         m : float or np.array
             Liquid market resources (normalized by permanent income).
         n : flot or np.array
             Illiquid market resources (normalized by permanent income)
-
         Returns
         -------
         v : float or np.array
@@ -493,14 +476,12 @@ class MargValueFuncIRA(HARKobject):
     def __init__(self,cFunc,CRRA):
         '''
         Constructor for a new marginal value function object.
-
         Parameters
         ----------
         cFunc : function
             A real function representing the consumption function.
         CRRA : float
             Coefficient of relative risk aversion.
-
         Returns
         -------
         None
@@ -512,14 +493,12 @@ class MargValueFuncIRA(HARKobject):
         '''
         Evaluate the marginal value function at given levels of liquid 
         resources m and illiquid resources n.
-
         Parameters
         ----------
         m : float or np.array
             Liquid market resources (normalized by permanent income).
         n : flot or np.array
             Illiquid market resources (normalized by permanent income)
-
         Returns
         -------
         vP : float or np.array
@@ -539,7 +518,6 @@ class TerminalValueFunc2D(HARKobject):
     def __init__(self,cFunc,CRRA):
         '''
         Constructor for a terminal value function object.
-
         Parameters
         ----------
         cFunc : function
@@ -548,7 +526,6 @@ class TerminalValueFunc2D(HARKobject):
             c(m,n)
         CRRA : float
             Coefficient of relative risk aversion.
-
         Returns
         -------
         None
@@ -560,14 +537,12 @@ class TerminalValueFunc2D(HARKobject):
         '''
         Evaluate the value function at given levels of liquid market resources 
         m and illiquid assets n.
-
         Parameters
         ----------
         m : float or np.array
             Liquid market resources
         n : float or np.array
             Illiquid market resources
-
         Returns
         -------
         v : float or np.array
@@ -597,7 +572,6 @@ class ConsIRASolver(ConsIndShockSolver):
         Constructor for a new solver for problems with risky income, a liquid
         and IRA-like illiquid savings account, different interest rates on 
         liquid borrowing/saving and illiquid saving.
-
         Parameters
         ----------
         solution_next : ConsumerSolution
@@ -653,7 +627,6 @@ class ConsIRASolver(ConsIndShockSolver):
         CubicBool: boolean
             An indicator for whether the solver should use cubic or linear 
             interpolation.
-
         Returns
         -------
         None
@@ -669,7 +642,7 @@ class ConsIRASolver(ConsIndShockSolver):
         self.notation = {'a': 'liquid assets after all actions',
                          'b': 'illiquid assets after all actions',
                          'm': 'liquid market resources at decision time',
-                         'n': 'illiduid market resources at decision time',
+                         'n': 'illiduid market resources at decisiont time',
                          'l': 'liquid market resource at decision time, net \
                                of illiquid deposits/withdrawals',
                          'c': 'consumption',
@@ -697,7 +670,6 @@ class ConsIRASolver(ConsIndShockSolver):
         Calculates the borrowing constraint, conditional on the amount of
         normalized assets in the illiquid account. Uses the artificial and 
         natural borrowing constraints.
-
         Parameters
         ----------
         BoroCnstArt : float or None
@@ -709,7 +681,6 @@ class ConsIRASolver(ConsIndShockSolver):
         bXtraGrid : np.array
             Array of "extra" end-of-period illiquid asset values-- assets above 
             the absolute minimum acceptable level.
-
         Returns
         -------
         none
@@ -791,11 +762,9 @@ class ConsIRASolver(ConsIndShockSolver):
         that the agent could have next period, considering the grid of 
         end-of-period liquid and illiquid assets and the distribution of shocks 
         she might experience next period.
-
         Parameters
         ----------
         none
-
         Returns
         -------
         aNrmNow : np.array
@@ -891,11 +860,9 @@ class ConsIRASolver(ConsIndShockSolver):
         weighted sum of next period value function and marginal values across 
         income shocks (in a preconstructed grid self.mNrmNext and 
         self.nNrmNext).
-
         Parameters
         ----------
         none
-
         Returns
         -------
         EndOfPrdv  : np.array
@@ -952,7 +919,6 @@ class ConsIRASolver(ConsIndShockSolver):
         lXtraGrid : np.array
             Array of "extra" liquid assets just before the consumption decision
             -- assets above the abolute minimum acceptable level. 
-
         Returns
         -------
         c_for_interpolation : np.array
@@ -1028,7 +994,6 @@ class ConsIRASolver(ConsIndShockSolver):
         Constructs a pure consumption function c(l,b), i.e. optimal consumption
         given l, holding b fixed this period (no deposits or withdrawals), to
         be used by other methods.
-
         Parameters
         ----------
         cNrm : np.array
@@ -1039,7 +1004,6 @@ class ConsIRASolver(ConsIndShockSolver):
         bNrm : np.array
             (Normalized) grid of illiquid market resource points for 
             interpolation.
-
         Returns
         -------
         none
@@ -1053,13 +1017,11 @@ class ConsIRASolver(ConsIndShockSolver):
         '''
         Construct the end-of-period value function for this period, storing it
         as an attribute of self for use by other methods.
-
         Parameters
         ----------
         EndOfPrdv : np.array
             Array of end-of-period value of assets corresponding to the
             asset values in self.aNrmNow and self.bNrmNow.
-
         Returns
         -------
         none
@@ -1183,13 +1145,11 @@ class ConsIRASolver(ConsIndShockSolver):
         '''
         Makes the optimal IRA deposit/withdrawal function for this period and
         optimal consumption function for this period.
-
         Parameters
         ----------
         cFuncNowPure : LinearInterp or BilinearInterp
             The pure consumption function for this period.
         
-
         Returns
         -------
         none
@@ -1229,7 +1189,6 @@ class ConsIRASolver(ConsIndShockSolver):
         '''
         Given end of period assets and end of period marginal value, construct
         the basic solution for this period.
-
         Parameters
         ----------
         EndOfPrdvP : np.array
@@ -1238,7 +1197,6 @@ class ConsIRASolver(ConsIndShockSolver):
             Array of end-of-period liquid asset values.
         bNrm : np.array
             Array of end-of-period illiquid asset values.
-
         Returns
         -------
         solution_now : ConsIRASolution
@@ -1265,12 +1223,10 @@ class ConsIRASolver(ConsIndShockSolver):
     def addMPCandHumanWealth(self,solution):
         '''
         Take a solution and add human wealth and the bounding MPCs to it.
-
         Parameters
         ----------
         solution : ConsIRASolution
             The solution to this period's consumption-saving problem.
-
         Returns:
         ----------
         solution : ConsIRASolution
@@ -1286,11 +1242,9 @@ class ConsIRASolver(ConsIndShockSolver):
         '''
         Solves a one period consumption saving problem with liquid and illiquid
         assets.
-
         Parameters
         ----------
         None
-
         Returns
         -------
         solution : ConsIRASolution
@@ -1313,7 +1267,6 @@ def solveConsIRA(solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,Rsave,Rira,
     Solves a single period consumption-saving problem with CRRA utility and 
     risky income (subject to permanent and transitory shocks), with liquid and
     illiquid assets.
-
     Parameters
         ----------
         solution_next : ConsumerSolution
@@ -1368,7 +1321,6 @@ def solveConsIRA(solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,Rsave,Rira,
         CubicBool: boolean
             An indicator for whether the solver should use cubic or linear 
             interpolation.
-
     Returns
     -------
     solution_now : ConsIRASolution
@@ -1420,14 +1372,12 @@ class IRAConsumerType(IndShockConsumerType):
         Instantiate a new ConsumerType with given data. See 
         ConsumerParameters.init_IRA for a dictionary of the keywords that 
         should be passed to the constructor.
-
         Parameters
         ----------
         cycles : int
             Number of times the sequence of periods should be solved.
         time_flow : boolean
             Whether time is currently "flowing" forward for this instance.
-
         Returns
         -------
         None
@@ -1446,11 +1396,9 @@ class IRAConsumerType(IndShockConsumerType):
         '''
         Update the terminal period solution.  This method should be run when a
         new AgentType is created or when CRRA changes.
-
         Parameters
         ----------
         none
-
         Returns
         -------
         none
@@ -1479,11 +1427,9 @@ class IRAConsumerType(IndShockConsumerType):
         '''
         Update the income process, the assets grids, the IRA penalty, distance
         to IRA penalty expiration, and the terminal solution.
-
         Parameters
         ----------
         None
-
         Returns
         -------
         None
@@ -1500,7 +1446,6 @@ class IRAConsumerType(IndShockConsumerType):
         Parameters
         ----------
         None
-
         Returns
         -------
         None
@@ -1515,7 +1460,6 @@ class IRAConsumerType(IndShockConsumerType):
         Parameters
         ----------
         None
-
         Returns
         -------
         None
@@ -1540,7 +1484,6 @@ class IRAConsumerType(IndShockConsumerType):
         Parameters
         ----------
         None
-
         Returns
         -------
         None
@@ -1559,11 +1502,9 @@ class IRAConsumerType(IndShockConsumerType):
         '''
         Returns an array of size self.AgentCount with self.Rboro or self.Rsave 
         in each entry, based on whether self.aNrmNow >< 0.
-
         Parameters
         ----------
         None
-
         Returns
         -------
         RfreeNow : np.array
@@ -1581,7 +1522,6 @@ class IRAConsumerType(IndShockConsumerType):
         Parameters
         ----------
         None
-
         Returns
         -------
         RillNow : np.array
@@ -1596,11 +1536,9 @@ class IRAConsumerType(IndShockConsumerType):
         Calculates updated values of normalized liquid and illiquid market 
         resources and permanent income level for each agent.  Uses pLvlNow, 
         aNrmNow, bNrmNow, PermShkNow, TranShkNow.
-
         Parameters
         ----------
         None
-
         Returns
         -------
         None
@@ -1633,11 +1571,9 @@ class IRAConsumerType(IndShockConsumerType):
         '''
         Calculates consumption and deposit/withdrawal for each consumer of this 
         type using the consumption and deposit/withdrawal functions.
-
         Parameters
         ----------
         None
-
         Returns
         -------
         None
@@ -1659,11 +1595,9 @@ class IRAConsumerType(IndShockConsumerType):
         '''
         Calculates end-of-period liquid and illiquid assets for each consumer 
         of this type.
-
         Parameters
         ----------
         None
-
         Returns
         -------
         None
@@ -1691,11 +1625,9 @@ class IRAConsumerType(IndShockConsumerType):
         reside in the attribute dFunc of each element of ConsumerType.solution.  
         This method creates a (time varying) attribute dFunc that contains a 
         list of deposit functions.
-
         Parameters
         ----------
         none
-
         Returns
         -------
         none
@@ -1711,13 +1643,11 @@ class IRAConsumerType(IndShockConsumerType):
         include aNrm, bNrm, and pLvl, as well as time variables t_age and 
         t_cycle.  Normalized assets and persistent income levels are drawn from 
         lognormal distributions given by aNrmInitMean and aNrmInitStd (etc).
-
         Parameters
         ----------
         which_agents : np.array(Bool)
             Boolean array of size self.AgentCount indicating which agents 
             should be "born".
-
         Returns
         -------
         None
@@ -1747,9 +1677,7 @@ class IRAConsumerType(IndShockConsumerType):
         Stores result in attribute eulerErrorFunc as an interpolated function.
         Has option to use approximate income distribution stored in 
         self.IncomeDstn or to use a (temporary) very dense approximation.
-
         NOT YET IMPLEMENTED FOR THIS CLASS
-
         Parameters
         ----------
         mMax : float
@@ -1760,7 +1688,6 @@ class IRAConsumerType(IndShockConsumerType):
             accurate discrete approximation instead.  When True, uses 
             approximation in IncomeDstn; when False, makes and uses a very 
             dense approximation.
-
         Returns
         -------
         None
@@ -1779,9 +1706,7 @@ class IRAConsumerType(IndShockConsumerType):
         conditions must be satisfied. To check which conditions are relevant to 
         the model at hand, a reference to the relevant theoretical literature 
         is made.
-
         NOT YET IMPLEMENTED FOR THIS CLASS
-
         Parameters
         ----------
         verbose : boolean
@@ -1789,7 +1714,6 @@ class IRAConsumerType(IndShockConsumerType):
             only reports whether the instance's type fails to satisfy a 
             particular condition. When true, it reports all results, i.e. the 
             factor values for all conditions.
-
         Returns
         -------
         None
@@ -1800,19 +1724,17 @@ class IRAConsumerType(IndShockConsumerType):
 
 def main():
     import ConsIRAParameters as Params
-    from ConsIndShockModel import KinkedRconsumerType
-    
     mystr = lambda number : "{:.4f}".format(number)
 
-    #do_simulation = True
-    
+    do_simulation = True
+
     # Make and solve an example IRA consumer
     IRAexample = IRAConsumerType(**Params.init_IRA_30)
     IRAexample.cycles = 1 # Make this consumer live a sequence of periods
                           # exactly once
                           
     # Extend the memory
-    sys.setrecursionlimit(4000)
+    sys.setrecursionlimit(2000)
     
     start_time = clock()
     start_time2 = time()
@@ -1824,47 +1746,6 @@ def main():
     print('Solving an IRA consumer took ' +\
           mystr((end_time2-start_time2)/3600)+ ' real hours.')
     
-    IRAexample.timeFwd()
-    
-    # Make and solve a 30 period kinked consumer
-    KinkedExample = KinkedRconsumerType(**Params.init_lifecycle_kinked)
-    KinkedExample.cycles = 1 # Make this consumer live a sequence of periods
-                             # exactly once
-                             
-    start_time = clock()
-    start_time2 = time()
-    KinkedExample.solve()
-    end_time = clock()
-    end_time2 = time()
-    print('Solving a Kinked consumer took ' + mystr((end_time-start_time)/3600)+\
-          ' processor hours.')
-    print('Solving a Kinked consumer took ' +\
-          mystr((end_time2-start_time2)/3600)+ ' real hours.')
-
-    KinkedExample.timeFwd()
-    
-    # Get consumption function in periods 15, 20, 25
-    mRange15 = np.arange(KinkedExample.solution[15].mNrmMin,KinkedExample.solution[15].mNrmMin+10,.01)
-    cKinked15 = KinkedExample.solution[15].cFunc(mRange15)
-    mRange20 = np.arange(KinkedExample.solution[20].mNrmMin,KinkedExample.solution[20].mNrmMin+10,.01)
-    cKinked20 = KinkedExample.solution[20].cFunc(mRange20)
-    mRange25 = np.arange(KinkedExample.solution[25].mNrmMin,KinkedExample.solution[25].mNrmMin+10,.01)
-    cKinked25 = KinkedExample.solution[25].cFunc(mRange25)
-    
-    # Get consumption function in period 15, 20, 25
-    cIRA15 = IRAexample.solution[15].cFunc(mRange15)
-    cIRA20 = IRAexample.solution[20].cFunc(mRange20)
-    cIRA25 = IRAexample.solution[25].cFunc(mRange25)
-    
-    # Export consumption functions for Kinked and IRA consumers
-    data15 = np.array([mRange15.T,cKinked15.T,cIRA15.T,15*np.ones(mRange15.size).T])
-    data20 = np.array([mRange20.T,cKinked20.T,cIRA20.T,15*np.ones(mRange20.size).T])
-    data25 = np.array([mRange25.T,cKinked25.T,cIRA25.T,15*np.ones(mRange25.size).T])
-    
-    data = np.concatenate((data15.T,data20.T,data25.T))
-    
-    np.savetxt('IRA_Results/IRA_Kinked_data.csv',data,delimeter=',',header='mRange,cKinked,cIRA,period')
-        
     # Plot the consumption functions during working life
     def makecFuncm(n):
         def cm(m):
@@ -1874,9 +1755,9 @@ def main():
         return cm
     
     print('Consumption function in period 25 for different values of n')
-    #plotFuncs([makecFuncm(n) for n in [0,1,2]],
-    #           IRAexample.solution[18].mNrmMin,5,
-    #           legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
+    plotFuncs([makecFuncm(n) for n in [0,1,2]],
+               IRAexample.solution[18].mNrmMin,5,
+               legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
 
     def makedFuncm(n):
         def dm(m):
@@ -1886,25 +1767,20 @@ def main():
         return dm
     
     print('Consumption function in period 25 for different values of n')
-    #plotFuncs([makedFuncm(n) for n in [0,1,2]],
-               #IRAexample.solution[18].mNrmMin,5,
-               #legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
+    plotFuncs([makedFuncm(n) for n in [0,1,2]],
+               IRAexample.solution[18].mNrmMin,5,
+               legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
 
     # Simulate some data; results stored in mNrmNow_hist, nNrmNow_hist, 
     # cNrmNow_hist, dNrmNow_hist, pLvlNow_hist, and t_age_hist
     #if do_simulation:
-        #IRAexample.T_sim = 120
-        #IRAexample.track_vars = ['mNrmNow','nNrmNow','cNrmNow','dNrmNow',
-        #                         'pLvlNow','t_age']
-        #IRAexample.initializeSim()
-        #IRAexample.simulate()
-    
-    #np.savetxt('IRA_Results/m_40.csv',IRAexample.mNrmNow_hist,delimiter=',')
-    #np.savetxt('IRA_Results/n_40.csv',IRAexample.nNrmNow_hist,delimiter=',')
-    #np.savetxt('IRA_Results/c_40.csv',IRAexample.cNrmNow_hist,delimiter=',')
-    #np.savetxt('IRA_Results/d_40.csv',IRAexample.dNrmNow_hist,delimiter=',')
-    #np.savetxt('IRA_Results/p_40.csv',IRAexample.pLvlNow_hist,delimiter=',')
-    #np.savetxt('IRA_Results/t_40.csv',IRAexample.t_age_hist,delimiter=',')
+    #    IRAexample.T_sim = 120
+    #    IRAexample.track_vars = ['mNrmNow','nNrmNow','cNrmNow','dNrmNow',
+    #                             'pLvlNow','t_age']
+    #    IRAexample.initializeSim()
+    #    IRAexample.simulate()
+        
+    #pickle.dump_session('IRA_40.pkl')
         
 if __name__ == '__main__':
     main()

@@ -3,8 +3,32 @@ Specifies examples of the full set of parameters required to solve the
 ConsIRAModel.
 '''
 from __future__ import division, print_function
-from copy import copy
 import numpy as np
+
+import sys 
+import os
+sys.path.insert(0, os.path.abspath('../'))
+sys.path.insert(0, os.path.abspath('./'))
+
+from core import HARKobject
+
+from ConsIndShockModel import constructAssetsGrid
+
+from time import time
+
+from utilities import CRRAutility, CRRAutilityP, CRRAutilityPP, \
+                      CRRAutilityP_inv, CRRAutility_invP, \
+                      CRRAutility_inv, CRRAutilityP_invP, plotFuncs 
+
+utility       = CRRAutility
+utilityP      = CRRAutilityP
+utilityPP     = CRRAutilityPP
+utilityP_inv  = CRRAutilityP_inv
+utility_invP  = CRRAutility_invP
+utility_inv   = CRRAutility_inv
+utilityP_invP = CRRAutilityP_invP
+
+from ConsIRAModel import ConsIRASolution, ConsIRASolver
 
 def cFunc_terminal(m,n):
     return m + n
