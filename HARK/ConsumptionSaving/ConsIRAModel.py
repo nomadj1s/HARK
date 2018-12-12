@@ -1806,6 +1806,26 @@ def main():
 
     do_simulation = True
     
+    # Make and solve an example IRA consumer
+    IRAexample = IRAConsumerType(**Params.init_IRA_30_simp)
+    IRAexample.cycles = 1 # Make this consumer live a sequence of periods
+                          # exactly once
+                          
+    # Extend the memory
+    sys.setrecursionlimit(4000)
+    
+    start_time = clock()
+    start_time2 = time()
+    IRAexample.solve()
+    end_time = clock()
+    end_time2 = time()
+    print('Solving an IRA consumer took ' + mystr((end_time-start_time)/3600)+\
+          ' processor hours.')
+    print('Solving an IRA consumer took ' +\
+          mystr((end_time2-start_time2)/3600)+ ' real hours.')
+    
+    IRAexample.timeFwd()
+    
     # Make and solve a 30 period kinked consumer
     KinkedExample = KinkedRconsumerType(**Params.init_lifecycle_kinked)
     KinkedExample.cycles = 1 # Make this consumer live a sequence of periods
@@ -1830,28 +1850,8 @@ def main():
     cKinked20 = KinkedExample.solution[20].cFunc(mRange20)
     mRange25 = np.arange(KinkedExample.solution[25].mNrmMin,KinkedExample.solution[25].mNrmMin+10,.01)
     cKinked25 = KinkedExample.solution[25].cFunc(mRange25)
-
-    # Make and solve an example IRA consumer
-    IRAexample = IRAConsumerType(**Params.init_IRA_30_simp)
-    IRAexample.cycles = 1 # Make this consumer live a sequence of periods
-                          # exactly once
-                          
-    # Extend the memory
-    sys.setrecursionlimit(2000)
     
-    start_time = clock()
-    start_time2 = time()
-    IRAexample.solve()
-    end_time = clock()
-    end_time2 = time()
-    print('Solving an IRA consumer took ' + mystr((end_time-start_time)/3600)+\
-          ' processor hours.')
-    print('Solving an IRA consumer took ' +\
-          mystr((end_time2-start_time2)/3600)+ ' real hours.')
-    
-    IRAexample.timeFwd()
-    
-    # Get consumption function in period 20
+    # Get consumption function in period 15, 20, 25
     cIRA15 = IRAexample.solution[15].cFunc(mRange15)
     cIRA20 = IRAexample.solution[20].cFunc(mRange20)
     cIRA25 = IRAexample.solution[25].cFunc(mRange25)
