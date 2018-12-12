@@ -92,6 +92,7 @@ CubicBool = False                   # Use cubic spline interpolation when True,
                                     # linear interpolation when False
 vFuncBool = True                    # Whether to calculate the value function 
                                     # during solution
+ParallelBool = True                 # Whether to use multiprocessing or not
 
 # Interest rate/factors
 
@@ -138,6 +139,7 @@ init_IRA_10 = { 'CRRA': CRRA,
              'tax_rate': tax_rate,
              'vFuncBool':vFuncBool,
              'CubicBool':CubicBool,
+             'ParallelBool':ParallelBool,
              'T_retire':T_retire,
              'aNrmInitMean' : aNrmInitMean,
              'aNrmInitStd' : aNrmInitStd,
@@ -205,6 +207,7 @@ init_IRA_30 = { 'CRRA': CRRA,
              'tax_rate': tax_rate,
              'vFuncBool':vFuncBool,
              'CubicBool':CubicBool,
+             'ParallelBool':ParallelBool,
              'T_retire':T_retire,
              'aNrmInitMean' : aNrmInitMean,
              'aNrmInitStd' : aNrmInitStd,
@@ -273,6 +276,7 @@ init_IRA_40 = { 'CRRA': CRRA,
              'tax_rate': tax_rate,
              'vFuncBool':vFuncBool,
              'CubicBool':CubicBool,
+             'ParallelBool':ParallelBool,
              'T_retire':T_retire,
              'aNrmInitMean' : aNrmInitMean,
              'aNrmInitStd' : aNrmInitStd,
@@ -347,6 +351,7 @@ init_IRA_30_simp = { 'CRRA': CRRA,
                      'tax_rate': tax_rate,
                      'vFuncBool':vFuncBool,
                      'CubicBool':CubicBool,
+                     'ParallelBool':ParallelBool,
                      'T_retire':T_retire,
                      'aNrmInitMean' : aNrmInitMean,
                      'aNrmInitStd' : aNrmInitStd,
@@ -481,5 +486,6 @@ init_IRA_Solver = { 'solution_next' : solution_terminal,
                     'bXtraGrid' : np.array([.5,1,2,3]),
                     'lXtraGrid' : np.array([.5,.75,1,2,3]),
                     'vFuncBool' : True,
-                    'CubicBool' : True
+                    'CubicBool' : True,
+                    'ParallelBool' : True
                     }

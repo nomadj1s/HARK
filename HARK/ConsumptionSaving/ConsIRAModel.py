@@ -1317,7 +1317,7 @@ class ConsIRASolver(ConsIndShockSolver):
 
 def solveConsIRA(solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,Rsave,Rira,
                  PenIRA,MaxIRA,DistIRA,PermGroFac,BoroCnstArt,aXtraGrid,
-                 bXtraGrid,lXtraGrid,vFuncBool,CubicBool):
+                 bXtraGrid,lXtraGrid,vFuncBool,CubicBool,ParallelBool):
     '''
     Solves a single period consumption-saving problem with CRRA utility and 
     risky income (subject to permanent and transitory shocks), with liquid and
@@ -1377,6 +1377,10 @@ def solveConsIRA(solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,Rsave,Rira,
         CubicBool: boolean
             An indicator for whether the solver should use cubic or linear 
             interpolation.
+        ParallelBool: boolean
+            An indicator for whether the solver should use parallel processing
+            when solving for the optimal deposit amount over a grid of m and
+            n values. Solver takes significantly longer otherwise.
 
     Returns
     -------
@@ -1391,7 +1395,7 @@ def solveConsIRA(solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,Rsave,Rira,
     solver = ConsIRASolver(solution_next,IncomeDstn,LivPrb,DiscFac,CRRA,Rboro,
                            Rsave,Rira,PenIRA,MaxIRA,DistIRA,PermGroFac,
                            BoroCnstArt,aXtraGrid,bXtraGrid,lXtraGrid,vFuncBool,
-                           CubicBool)
+                           CubicBool,ParallelBool)
     solver.prepareToSolve()       # Do some preparatory work
     solution_now = solver.solve() # Solve the period
     return solution_now
@@ -1417,7 +1421,7 @@ class IRAConsumerType(IndShockConsumerType):
     
     time_inv_ = copy(IndShockConsumerType.time_inv_)
     time_inv_.remove('Rfree')
-    time_inv_ += ['Rboro', 'Rsave','Rira','MaxIRA']
+    time_inv_ += ['Rboro', 'Rsave','Rira','MaxIRA','ParallelBool']
     
     time_vary_ = IndShockConsumerType.time_vary_
     
@@ -1449,7 +1453,7 @@ class IRAConsumerType(IndShockConsumerType):
         # versions
         self.solveOnePeriod = solveConsIRA # IRA solver
         self.update() # Make assets grid, income process, terminal solution,
-                      # PenIRA, and DistIRA
+                      # PenIRA, DistIRA, and Parallel status
                       
     def updateSolutionTerminal(self):
         '''
@@ -1562,8 +1566,7 @@ class IRAConsumerType(IndShockConsumerType):
             self.PenIRA = self.T_cycle*[self.PenIRAFixed]
             self.DistrIRA = self.T_cycle*[None]
         self.addToTimeVary('PenIRA','DistIRA')
-        
-                                       
+                                   
     def getRfree(self):
         '''
         Returns an array of size self.AgentCount with self.Rboro or self.Rsave 
