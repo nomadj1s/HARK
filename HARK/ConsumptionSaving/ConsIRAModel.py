@@ -653,6 +653,10 @@ class ConsIRASolver(ConsIndShockSolver):
         CubicBool: boolean
             An indicator for whether the solver should use cubic or linear 
             interpolation.
+        ParallelBool: boolean
+            An indicator for whether the solver should use parallel processing
+            when solving for the optimal deposit amount over a grid of m and
+            n values. Solver takes significantly longer otherwise.
 
         Returns
         -------
@@ -691,6 +695,7 @@ class ConsIRASolver(ConsIndShockSolver):
         self.DistIRA      = DistIRA
         self.bXtraGrid    = bXtraGrid
         self.lXtraGrid    = lXtraGrid
+        #self.ParallelBool = ParallelBool
         
     def defBoroCnst(self,BoroCnstArt):
         '''
@@ -714,7 +719,7 @@ class ConsIRASolver(ConsIndShockSolver):
         -------
         none
         '''
-        if self.DistIRA == None:
+        if self.DistIRA == None: # There is no IRA penalty expiration
             bPDVFactor = (1.0 - self.PenIRA)*(self.Rira/self.Rboro)
             bPDVFactor_n = (1.0 - self.PenIRA)
         else:
@@ -1807,12 +1812,12 @@ def main():
     #do_simulation = True
     
     # Make and solve an example IRA consumer
-    IRAexample = IRAConsumerType(**Params.init_IRA_30)
+    IRAexample = IRAConsumerType(**Params.init_IRA_30_simp)
     IRAexample.cycles = 1 # Make this consumer live a sequence of periods
                           # exactly once
                           
     # Extend the memory
-    sys.setrecursionlimit(4000)
+    sys.setrecursionlimit(3000)
     
     start_time = clock()
     start_time2 = time()
