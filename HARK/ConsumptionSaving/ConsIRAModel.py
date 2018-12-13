@@ -1214,7 +1214,7 @@ class ConsIRASolver(ConsIndShockSolver):
            
             if self.ParallelBool:
                 n_cpus = mp.cpu_count()
-                pool = ProcessPool(processes=n_cpus)
+                pool = ProcessPool(processes=int(np.floor(.75*n_cpus)))
                 dNrm_list = pool.map(self.findArgMaxv, m_tile, n_repeat)
             else:
                 dNrm_list = [[self.findArgMaxv(m,n) for m in mNrm] 
@@ -1823,8 +1823,9 @@ def main():
     IRAexample.cycles = 1 # Make this consumer live a sequence of periods
                           # exactly once
                           
-    # Extend the memory
-    sys.setrecursionlimit(3000)
+    # Extend the recursion depth limit
+    recursion_limit = sys.getrecursionlimit()
+    sys.setrecursionlimit(10000)
     
     start_time = clock()
     start_time2 = time()
@@ -1835,6 +1836,9 @@ def main():
           ' processor hours.')
     print('Solving an IRA consumer took ' +\
           mystr((end_time2-start_time2)/3600)+ ' real hours.')
+    
+    # Return to previous recursion depth limit
+    sys.setrecursionlimit(recursion_limit)
     
     IRAexample.timeFwd()
     

@@ -53,14 +53,17 @@ solution_terminal = ConsIRASolution(cFunc=cFunc,dFunc=dFunc,vFunc=vFunc,
 
 IncomeDstn = np.array([[.25,.25,.25,.25],[.9,.9,1.1,1.1],[.8,1.2,.8,1.2]])
 
+gridMult = 8
 agrid = HARKobject
 agrid.aXtraMin = 0.001
 agrid.aXtraMax = 20
-agrid.aXtraCount = 48
+agrid.aXtraCount = 36
 agrid.aXtraNestFac = 3
 agrid.aXtraExtra = np.array([None])
 aXtraGrid = constructAssetsGrid(agrid)
+agrid.aXtraCount = 36
 lXtraGrid = constructAssetsGrid(agrid)
+agrid.aXtraCount = 48
 bXtraGrid = constructAssetsGrid(agrid)
 
 ira_params = { 'solution_next' : solution_terminal,
@@ -76,13 +79,13 @@ ira_params = { 'solution_next' : solution_terminal,
                 'DistIRA' : 1,
                 'PermGroFac' : 1.1,
                 'BoroCnstArt' : None,
-                'aXtraGrid' : np.array([.1,.5,1,2,3,4]),
-                'bXtraGrid' : np.array([.5,1,2,3]),
+                #'aXtraGrid' : np.array([.1,.5,1,2,3,4]),
+                #'bXtraGrid' : np.array([.5,1,2,3]),
                 #'bXtraGrid' : np.array([]),
-                'lXtraGrid' : np.array([.5,.75,1,2,3]),
-                #'aXtraGrid' : aXtraGrid,
-                #'bXtraGrid' : bXtraGrid,
-                #'lXtraGrid' : lXtraGrid,
+                #'lXtraGrid' : np.array([.5,.75,1,2,3]),
+                'aXtraGrid' : aXtraGrid,
+                'bXtraGrid' : bXtraGrid,
+                'lXtraGrid' : lXtraGrid,
                 'vFuncBool' : True,
                 'CubicBool' : True,
                 'ParallelBool' : True
@@ -131,22 +134,22 @@ def makedFuncn(m):
         return ex.dFuncNow(mi,n)
     return dn
 
-print('Consumption function for different values of n')
+print('Consumption function of m for different values of n')
 plotFuncs([makecFuncm(n) for n in [0,1,2,3,4]],ex.mNrmMin,
-           ex.mNrmMin + 10,
+           ex.mNrmMin + 4,
            legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2,3,4]]})
 
-print('Deposit function for different values of n')
+print('Deposit function of m for different values of n')
 plotFuncs([makedFuncm(n) for n in [0,1,2,3,4]],ex.mNrmMin,
-           ex.mNrmMin + 10,
+           ex.mNrmMin + 4,
            legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2,3,4]]})
 
 print('Consumption function of n for different values of m')
 plotFuncs([makecFuncn(m) for m in [0,1,2,3,4]],0,
-           10,
+           4,
            legend_kwds={'labels': ["m = " + str(m) for m in [0,1,2,3,4]]})
 
 print('Deposit function of n for different values of m')
 plotFuncs([makedFuncn(m) for m in [0,1,2,3,4]],0,
-           10,
+           4,
            legend_kwds={'labels': ["m = " + str(m) for m in [0,1,2,3,4]]})
