@@ -158,213 +158,42 @@ init_IRA_10 = { 'CRRA': CRRA,
 # --- Define all of the parameters for the 30 period consumption IRA model ----
 # -----------------------------------------------------------------------------
 
+init_IRA_30 = copy(init_IRA_10)
 
-                                    
-LivPrb = 30*[1]                     # Survival probability
-T_age = 31                          # Age after which simulated agents are 
-                                    # automatically killed
-T_cycle = 30                        # Number of periods in the cycle for this 
-                                    # agent type
-
-PermGroFac = 30*[1.01]              # Standard deviation of log permanent 
-                                    # income shocks
-PermShkStd = 26*[0.15] + 4*[0]      # Standard deviation of log transitory 
-                                    # income shocks
-TranShkStd = 26*[0.2] + 4*[0]
-
-T_retire = 26                       # Period of retirement (0 --> no 
-                                    # retirement)
-                                    
-T_ira = 22                          # Period of IRA penalty expiration
-
-# Make a dictionary to specify an IRA consumer type
-init_IRA_30 = { 'CRRA': CRRA,
-             'Rsave' : Rsave,
-             'Rboro' : Rboro,
-             'Rira' : Rira,
-             'DiscFac': DiscFac,
-             'LivPrb': LivPrb,
-             'PermGroFac': PermGroFac,
-             'AgentCount': AgentCount,
-             'aXtraMin': aXtraMin,
-             'aXtraMax': aXtraMax,
-             'aXtraNestFac':aXtraNestFac,
-             'aXtraCount': aXtraCount,
-             'aXtraExtra': [aXtraExtra],
-             'bXtraMin': bXtraMin,
-             'bXtraMax': bXtraMax,
-             'bXtraNestFac':bXtraNestFac,
-             'bXtraCount': bXtraCount,
-             'bXtraExtra': [bXtraExtra],
-             'PermShkStd': PermShkStd,
-             'PermShkCount': PermShkCount,
-             'TranShkStd': TranShkStd,
-             'TranShkCount': TranShkCount,
-             'UnempPrb': UnempPrb,
-             'UnempPrbRet': UnempPrbRet,
-             'IncUnemp': IncUnemp,
-             'IncUnempRet': IncUnempRet,
-             'BoroCnstArt': BoroCnstArt,
-             'tax_rate': tax_rate,
-             'vFuncBool':vFuncBool,
-             'CubicBool':CubicBool,
-             'ParallelBool':ParallelBool,
-             'T_retire':T_retire,
-             'aNrmInitMean' : aNrmInitMean,
-             'aNrmInitStd' : aNrmInitStd,
-             'pLvlInitMean' : pLvlInitMean,
-             'pLvlInitStd' : pLvlInitStd,
-             'PermGroFacAgg' : PermGroFacAgg,
-             'T_age' : T_age,
-             'T_cycle' : T_cycle,
-             'T_ira' : T_ira,
-             'PenIRAFixed' : PenIRAFixed,
-             'MaxIRA' : MaxIRA
-            }
+init_IRA_30['LivPrb'] = 30*[1]
+init_IRA_30['T_age'] = 31
+init_IRA_30['T_cycle'] = 30
+init_IRA_30['PermGroFac'] = 30*[1.01]
+init_IRA_30['PermShkStd'] = 26*[0.15] + 4*[0]
+init_IRA_30['TranShkStd'] = 26*[0.2] + 4*[0]
+init_IRA_30['T_retire'] = 26
+init_IRA_30['T_ira'] = 22
 
 
 # -----------------------------------------------------------------------------
 # --- Define all of the parameters for the 40 period consumption IRA model ----
 # -----------------------------------------------------------------------------
 
+init_IRA_40 = copy(init_IRA_10)
 
-                                    
-LivPrb = 40*[1]                     # Survival probability
-T_age = 41                          # Age after which simulated agents are 
-                                    # automatically killed
-T_cycle = 40                        # Number of periods in the cycle for this 
-                                    # agent type
+init_IRA_40['LivPrb'] = 40*[1]
+init_IRA_40['T_age'] = 41
+init_IRA_40['T_cycle'] = 40
+init_IRA_40['PermGroFac'] = 40*[1.01]
+init_IRA_40['PermShkStd'] = 35*[0.15] + 5*[0]
+init_IRA_40['TranShkStd'] = 35*[0.2] + 5*[0]
+init_IRA_40['T_retire'] = 35
+init_IRA_40['T_ira'] = 30
 
-PermGroFac = 40*[1.01]              # Standard deviation of log permanent 
-                                    # income shocks
-PermShkStd = 35*[0.15] + 5*[0]      # Standard deviation of log transitory 
-                                    # income shocks
-TranShkStd = 35*[0.2] + 5*[0]
-
-T_retire = 36                       # Period of retirement (0 --> no 
-                                    # retirement)
-
-T_ira = 30                          # Period of IRA penalty expiration
-
-# Make a dictionary to specify an IRA consumer type
-init_IRA_40 = { 'CRRA': CRRA,
-             'Rsave' : Rsave,
-             'Rboro' : Rboro,
-             'Rira' : Rira,
-             'DiscFac': DiscFac,
-             'LivPrb': LivPrb,
-             'PermGroFac': PermGroFac,
-             'AgentCount': AgentCount,
-             'aXtraMin': aXtraMin,
-             'aXtraMax': aXtraMax,
-             'aXtraNestFac':aXtraNestFac,
-             'aXtraCount': aXtraCount,
-             'aXtraExtra': [aXtraExtra],
-             'bXtraMin': bXtraMin,
-             'bXtraMax': bXtraMax,
-             'bXtraNestFac':bXtraNestFac,
-             'bXtraCount': bXtraCount,
-             'bXtraExtra': [bXtraExtra],
-             'PermShkStd': PermShkStd,
-             'PermShkCount': PermShkCount,
-             'TranShkStd': TranShkStd,
-             'TranShkCount': TranShkCount,
-             'UnempPrb': UnempPrb,
-             'UnempPrbRet': UnempPrbRet,
-             'IncUnemp': IncUnemp,
-             'IncUnempRet': IncUnempRet,
-             'BoroCnstArt': BoroCnstArt,
-             'tax_rate': tax_rate,
-             'vFuncBool':vFuncBool,
-             'CubicBool':CubicBool,
-             'ParallelBool':ParallelBool,
-             'T_retire':T_retire,
-             'aNrmInitMean' : aNrmInitMean,
-             'aNrmInitStd' : aNrmInitStd,
-             'pLvlInitMean' : pLvlInitMean,
-             'pLvlInitStd' : pLvlInitStd,
-             'PermGroFacAgg' : PermGroFacAgg,
-             'T_age' : T_age,
-             'T_cycle' : T_cycle,
-             'T_ira' : T_ira,
-             'PenIRAFixed' : PenIRAFixed,
-             'MaxIRA' : MaxIRA
-            }
 
 # -----------------------------------------------------------------------------
 # --- Define all of the parameters for the 30 period consumption IRA model, ---
 # --- simplified version to check against the standard ConsInd model. ---------
 # -----------------------------------------------------------------------------
 
-LivPrb = 30*[1]                     # Survival probability
-T_age = 31                          # Age after which simulated agents are 
-                                    # automatically killed
-T_cycle = 30                        # Number of periods in the cycle for this 
-                                    # agent type
+init_IRA_30_simp = copy(init_IRA_30)
 
-PermGroFac = 30*[1.01]              # Standard deviation of log permanent 
-                                    # income shocks
-PermShkStd = 26*[0.15] + 4*[0]      # Standard deviation of log transitory 
-                                    # income shocks
-TranShkStd = 26*[0.2] + 4*[0]
-
-T_retire = 26                       # Period of retirement (0 --> no 
-                                    # retirement)
-                                    
-T_ira = 22                          # Period of IRA penalty expiration
-
-# Parameters for constructing the "assets above minimum" grid
-aXtraCount = 36                     # Number of points in the grid of "assets 
-                                    # above minimum"
-bXtraCount = 0                      # Number of points in the grid of "assets 
-                                    # above minimum"
-                                    # 0 leads to degenerate b grid and
-                                    # collapses model to simple one asset model
-
-# Make a dictionary to specify an IRA consumer type
-init_IRA_30_simp = { 'CRRA': CRRA,
-                     'Rsave' : Rsave,
-                     'Rboro' : Rboro,
-                     'Rira' : Rira,
-                     'DiscFac': DiscFac,
-                     'LivPrb': LivPrb,
-                     'PermGroFac': PermGroFac,
-                     'AgentCount': AgentCount,
-                     'aXtraMin': aXtraMin,
-                     'aXtraMax': aXtraMax,
-                     'aXtraNestFac':aXtraNestFac,
-                     'aXtraCount': aXtraCount,
-                     'aXtraExtra': [aXtraExtra],
-                     'bXtraMin': bXtraMin,
-                     'bXtraMax': bXtraMax,
-                     'bXtraNestFac':bXtraNestFac,
-                     'bXtraCount': bXtraCount,
-                     'bXtraExtra': [bXtraExtra],
-                     'PermShkStd': PermShkStd,
-                     'PermShkCount': PermShkCount,
-                     'TranShkStd': TranShkStd,
-                     'TranShkCount': TranShkCount,
-                     'UnempPrb': UnempPrb,
-                     'UnempPrbRet': UnempPrbRet,
-                     'IncUnemp': IncUnemp,
-                     'IncUnempRet': IncUnempRet,
-                     'BoroCnstArt': BoroCnstArt,
-                     'tax_rate': tax_rate,
-                     'vFuncBool':vFuncBool,
-                     'CubicBool':CubicBool,
-                     'ParallelBool':ParallelBool,
-                     'T_retire':T_retire,
-                     'aNrmInitMean' : aNrmInitMean,
-                     'aNrmInitStd' : aNrmInitStd,
-                     'pLvlInitMean' : pLvlInitMean,
-                     'pLvlInitStd' : pLvlInitStd,
-                     'PermGroFacAgg' : PermGroFacAgg,
-                     'T_age' : T_age,
-                     'T_cycle' : T_cycle,
-                     'T_ira' : T_ira,
-                     'PenIRAFixed' : PenIRAFixed,
-                     'MaxIRA' : MaxIRA
-                     }
+init_IRA_30_simp['bXtraCount'] = 0
 
 # -----------------------------------------------------------------------------
 # --- Define all of the parameters for the 30 period consumption IRA model, ---
@@ -373,80 +202,20 @@ init_IRA_30_simp = { 'CRRA': CRRA,
 # -----------------------------------------------------------------------------
 
 init_IRA_30_simp_noMP = copy(init_IRA_30_simp)
+
 init_IRA_30_simp_noMP['ParallelBool'] = False # Turn off parallel
 
-
 # -----------------------------------------------------------------------------
-# --- Define all of the parameters for a 30 period, kinked lifecycle ----------
-# --- ConsInd model, to check against the 30 period, simple IRA model. --------
+# --- Define all of the parameters for the 30 period consumption IRA model, ---
+# --- simplified version to check against the standard ConsInd model. ---------
+# --- Also collapses to ConsInd, but allows for two assets --------------------
 # -----------------------------------------------------------------------------
 
-LivPrb = 30*[1]                     # Survival probability
-T_age = 31                          # Age after which simulated agents are 
-                                    # automatically killed
-T_cycle = 30                        # Number of periods in the cycle for this 
-                                    # agent type
+init_IRA_30_comp = copy(init_IRA_30)
 
-PermGroFac = 30*[1.01]              # Standard deviation of log permanent 
-                                    # income shocks
-PermShkStd = 26*[0.15] + 4*[0]      # Standard deviation of log transitory 
-                                    # income shocks
-TranShkStd = 26*[0.2] + 4*[0]
-
-T_retire = 26                       # Period of retirement (0 --> no 
-                                    # retirement)
-                                    
-T_ira = 22                          # Period of IRA penalty expiration
-
-# Parameters for constructing the "assets above minimum" grid
-bXtraCount = 0                      # Number of points in the grid of "assets 
-                                    # above minimum"
-                                    # 0 leads to degenerate b grid and
-                                    # collapses model to simple one asset model
-
-# Make a dictionary to specify an IRA consumer type
-init_lifecycle_kinked = { 'CRRA': CRRA,
-                          'Rsave' : Rsave,
-                          'Rboro' : Rboro,
-                          'Rira' : Rira,
-                          'DiscFac': DiscFac,
-                          'LivPrb': LivPrb,
-                          'PermGroFac': PermGroFac,
-                          'AgentCount': AgentCount,
-                          'aXtraMin': aXtraMin,
-                          'aXtraMax': aXtraMax,
-                          'aXtraNestFac':aXtraNestFac,
-                          'aXtraCount': aXtraCount,
-                          'aXtraExtra': [aXtraExtra],
-                          'bXtraMin': bXtraMin,
-                          'bXtraMax': bXtraMax,
-                          'bXtraNestFac':bXtraNestFac,
-                          'bXtraCount': bXtraCount,
-                          'bXtraExtra': [bXtraExtra],
-                          'PermShkStd': PermShkStd,
-                          'PermShkCount': PermShkCount,
-                          'TranShkStd': TranShkStd,
-                          'TranShkCount': TranShkCount,
-                          'UnempPrb': UnempPrb,
-                          'UnempPrbRet': UnempPrbRet,
-                          'IncUnemp': IncUnemp,
-                          'IncUnempRet': IncUnempRet,
-                          'BoroCnstArt': BoroCnstArt,
-                          'tax_rate': tax_rate,
-                          'vFuncBool':vFuncBool,
-                          'CubicBool':CubicBool,
-                          'T_retire':T_retire,
-                          'aNrmInitMean' : aNrmInitMean,
-                          'aNrmInitStd' : aNrmInitStd,
-                          'pLvlInitMean' : pLvlInitMean,
-                          'pLvlInitStd' : pLvlInitStd,
-                          'PermGroFacAgg' : PermGroFacAgg,
-                          'T_age' : T_age,
-                          'T_cycle' : T_cycle,
-                          'T_ira' : T_ira,
-                          'PenIRAFixed' : PenIRAFixed,
-                          'MaxIRA' : MaxIRA
-                          }
+init_IRA_30_comp['Rsave'] = 1.0 # Never save in this account
+init_IRA_30_comp['Rira'] = 1.02 # Make return on IRA same as liquid account
+init_IRA_30_comp['T_ira'] = -1 # Turn off IRA penalty
 
 # -----------------------------------------------------------------------------
 # --- Define all of the parameters for the a one-period IRA model for ---------
