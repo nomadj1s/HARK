@@ -1824,7 +1824,7 @@ def main():
     #do_simulation = True
     
     # Make and solve an example IRA consumer
-    IRAexample = IRAConsumerType(**Params.init_IRA_30_comp)
+    IRAexample = IRAConsumerType(**Params.init_IRA_30_comp_noMP)
     IRAexample.cycles = 1 # Make this consumer live a sequence of periods
                           # exactly once
                           
