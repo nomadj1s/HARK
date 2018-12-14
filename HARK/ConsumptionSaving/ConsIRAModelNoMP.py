@@ -177,10 +177,11 @@ class PureConsumptionFunc(HARKobject):
         else: # b grid is not degenerate
             self.interpolator = BilinearInterp(c_list,l_list,b_list)
 
-    def __call__(self,l,b):
+    def __call__(self,l,b=None):
         '''
         Evaluate the pure consumption function at given levels of liquid 
-        market resources l and illiquid assets b.
+        market resources l and illiquid assets b. When b is degenerate at zero,
+        function optionally takes one argument, l (liquid resources).
 
         Parameters
         ----------
@@ -195,14 +196,15 @@ class PureConsumptionFunc(HARKobject):
             Pure consumption given liquid and illiquid market resources, 
             c(l,b).
         '''
-        assert np.array(b >= 0).all(), 'b should be non-negative'
+        if np.array(b != None).all():
+            assert np.array(b >= 0).all(), 'b should be non-negative'
         
         if self.bZero:
             c = self.interpolator(l)
         else:
             c = self.interpolator(l,b)
         
-        # Set consumpgion to zero if l is below asset minimum
+        # Set consumption to zero if l is below asset minimum
         c[l <= self.lMin(np.asarray(b))] = 0.0
         
         return c
@@ -1203,8 +1205,8 @@ class ConsIRASolver(ConsIndShockSolver):
         if self.bNrmCount == 1:
             self.dFuncNow = ConstantFunction(0.0)
             self.cFuncNow = self.cFuncNowPure
-            self.cAnddFuncNow = MultiValuedFunc(self.cFuncNowPure,
-                                                ConstantFunction(0.0))
+            self.policyFuncNow = MultiValuedFunc(self.cFuncNowPure,
+                                                 ConstantFunction(0.0))
         else:
             mNrm = self.aNrmNowUniform
             nNrm = self.bNrmNow
@@ -1558,11 +1560,14 @@ class IRAConsumerType(IndShockConsumerType):
         -------
         None
         '''
-        if self.T_ira < self.T_cycle:
+        if self.T_ira < 0: # No penalty
+            self.PenIRA = self.T_cycle*[0.0]
+            self.DistIRA = [self.T_ira - t for t in range(self.T_cycle)]
+        elif self.T_ira < self.T_cycle: # Penalty for part of the time
             self.PenIRA = (self.T_ira)*[self.PenIRAFixed] +\
                           (self.T_cycle - self.T_ira)*[0.0]
             self.DistIRA = [self.T_ira - t for t in range(self.T_cycle)]
-        else:
+        else: # Penaltly all the time
             self.PenIRA = self.T_cycle*[self.PenIRAFixed]
             self.DistrIRA = self.T_cycle*[None]
         self.addToTimeVary('PenIRA','DistIRA')
@@ -1819,12 +1824,13 @@ def main():
     #do_simulation = True
     
     # Make and solve an example IRA consumer
-    IRAexample = IRAConsumerType(**Params.init_IRA_30_comp_noMP)
+    IRAexample = IRAConsumerType(**Params.init_IRA_30_comp)
     IRAexample.cycles = 1 # Make this consumer live a sequence of periods
                           # exactly once
                           
-    # Extend the memory
-    sys.setrecursionlimit(3000)
+    # Extend the recursion depth limit
+    recursion_limit = sys.getrecursionlimit()
+    sys.setrecursionlimit(10000)
     
     start_time = clock()
     start_time2 = time()
@@ -1835,6 +1841,9 @@ def main():
           ' processor hours.')
     print('Solving an IRA consumer took ' +\
           mystr((end_time2-start_time2)/3600)+ ' real hours.')
+    
+    # Return to previous recursion depth limit
+    sys.setrecursionlimit(recursion_limit)
     
     IRAexample.timeFwd()
     
@@ -1870,12 +1879,12 @@ def main():
     
     # Export consumption functions for Kinked and IRA consumers
     data15 = np.array([mRange15.T,cKinked15.T,cIRA15.T,15*np.ones(mRange15.size).T])
-    data20 = np.array([mRange20.T,cKinked20.T,cIRA20.T,15*np.ones(mRange20.size).T])
-    data25 = np.array([mRange25.T,cKinked25.T,cIRA25.T,15*np.ones(mRange25.size).T])
+    data20 = np.array([mRange20.T,cKinked20.T,cIRA20.T,20*np.ones(mRange20.size).T])
+    data25 = np.array([mRange25.T,cKinked25.T,cIRA25.T,25*np.ones(mRange25.size).T])
     
     data = np.concatenate((data15.T,data20.T,data25.T))
     
-    np.savetxt('IRA_Results/IRA_Kinked_data_noMP.csv',data,delimeter=',',header='mRange,cKinked,cIRA,period')
+    np.savetxt('IRA_Results/IRA_Kinked_data.csv',data,delimiter=',',header='mRange,cKinked,cIRA,period')
         
     # Plot the consumption functions during working life
     def makecFuncm(n):
