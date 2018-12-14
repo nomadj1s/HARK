@@ -218,6 +218,17 @@ init_IRA_30_comp['Rira'] = 1.02 # Make return on IRA same as liquid account
 init_IRA_30_comp['T_ira'] = -1 # Turn off IRA penalty
 
 # -----------------------------------------------------------------------------
+# --- Define all of the parameters for the 30 period consumption IRA model, ---
+# --- simplified version to check against the standard ConsInd model. ---------
+# --- Also collapses to ConsInd, but allows for two assets. -------------------
+# --- This version turns off parallel computing. ------------------------------
+# -----------------------------------------------------------------------------
+
+init_IRA_30_comp_noMP = copy(init_IRA_30_comp)
+
+init_IRA_30_comp_noMP['ParallelBool'] = False # Turn off parallel
+
+# -----------------------------------------------------------------------------
 # --- Define all of the parameters for the a one-period IRA model for ---------
 # --- testing purposes --------------------------------------------------------
 # -----------------------------------------------------------------------------

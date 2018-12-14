@@ -1819,7 +1819,7 @@ def main():
     #do_simulation = True
     
     # Make and solve an example IRA consumer
-    IRAexample = IRAConsumerType(**Params.init_IRA_30_simp_noMP)
+    IRAexample = IRAConsumerType(**Params.init_IRA_30_comp_noMP)
     IRAexample.cycles = 1 # Make this consumer live a sequence of periods
                           # exactly once
                           
@@ -1839,7 +1839,7 @@ def main():
     IRAexample.timeFwd()
     
     # Make and solve a 30 period kinked consumer
-    KinkedExample = KinkedRconsumerType(**Params.init_lifecycle_kinked)
+    KinkedExample = KinkedRconsumerType(**Params.init_IRA_30_simp)
     KinkedExample.cycles = 1 # Make this consumer live a sequence of periods
                              # exactly once
                              
