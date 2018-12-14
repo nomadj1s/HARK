@@ -1214,7 +1214,7 @@ class ConsIRASolver(ConsIndShockSolver):
            
             if self.ParallelBool:
                 n_cpus = mp.cpu_count()
-                pool = ProcessPool(processes=n_cpus)
+                pool = ProcessPool(processes=max(n_cpus-1,1))
                 dNrm_list = pool.map(self.findArgMaxv, m_tile, n_repeat)
             else:
                 dNrm_list = [[self.findArgMaxv(m,n) for m in mNrm] 
@@ -1875,7 +1875,7 @@ def main():
     
     data = np.concatenate((data15.T,data20.T,data25.T))
     
-    np.savetxt('IRA_Results/IRA_Kinked_data.csv',data,delimeter=',',header='mRange,cKinked,cIRA,period')
+    np.savetxt('IRA_Results/IRA_Kinked_data_noMP.csv',data,delimeter=',',header='mRange,cKinked,cIRA,period')
         
     # Plot the consumption functions during working life
     def makecFuncm(n):

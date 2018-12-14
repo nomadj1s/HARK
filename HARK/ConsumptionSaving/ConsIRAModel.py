@@ -1216,7 +1216,7 @@ class ConsIRASolver(ConsIndShockSolver):
            
             if self.ParallelBool:
                 n_cpus = mp.cpu_count()
-                pool = ProcessPool(processes=int(np.floor(.75*n_cpus)))
+                pool = ProcessPool(processes=max(n_cpus-1,1))
                 dNrm_list = pool.map(self.findArgMaxv, m_tile, n_repeat)
             else:
                 dNrm_list = [[self.findArgMaxv(m,n) for m in mNrm] 
