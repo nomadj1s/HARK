@@ -1817,14 +1817,14 @@ class IRAConsumerType(IndShockConsumerType):
 
 def main():
     import ConsIRAParameters as Params
-    from ConsIndShockModel import KinkedRconsumerType
+    #from ConsIndShockModel import KinkedRconsumerType
     
     mystr = lambda number : "{:.4f}".format(number)
 
-    #do_simulation = True
+    do_simulation = True
     
     # Make and solve an example IRA consumer
-    IRAexample = IRAConsumerType(**Params.init_IRA_30_comp)
+    IRAexample = IRAConsumerType(**Params.init_IRA_30)
     IRAexample.cycles = 1 # Make this consumer live a sequence of periods
                           # exactly once
                           
@@ -1848,43 +1848,43 @@ def main():
     IRAexample.timeFwd()
     
     # Make and solve a 30 period kinked consumer
-    KinkedExample = KinkedRconsumerType(**Params.init_IRA_30_simp)
-    KinkedExample.cycles = 1 # Make this consumer live a sequence of periods
+    #KinkedExample = KinkedRconsumerType(**Params.init_IRA_30_simp)
+    #KinkedExample.cycles = 1 # Make this consumer live a sequence of periods
                              # exactly once
                              
-    start_time = clock()
-    start_time2 = time()
-    KinkedExample.solve()
-    end_time = clock()
-    end_time2 = time()
-    print('Solving a Kinked consumer took ' + mystr((end_time-start_time)/3600)+\
-          ' processor hours.')
-    print('Solving a Kinked consumer took ' +\
-          mystr((end_time2-start_time2)/3600)+ ' real hours.')
+    #start_time = clock()
+    #start_time2 = time()
+    #KinkedExample.solve()
+    #end_time = clock()
+    #end_time2 = time()
+    #print('Solving a Kinked consumer took ' + mystr((end_time-start_time)/3600)+\
+    #      ' processor hours.')
+    #print('Solving a Kinked consumer took ' +\
+    #      mystr((end_time2-start_time2)/3600)+ ' real hours.')
 
-    KinkedExample.timeFwd()
+    #KinkedExample.timeFwd()
     
     # Get consumption function in periods 15, 20, 25
-    mRange15 = np.arange(KinkedExample.solution[15].mNrmMin,KinkedExample.solution[15].mNrmMin+10,.01)
-    cKinked15 = KinkedExample.solution[15].cFunc(mRange15)
-    mRange20 = np.arange(KinkedExample.solution[20].mNrmMin,KinkedExample.solution[20].mNrmMin+10,.01)
-    cKinked20 = KinkedExample.solution[20].cFunc(mRange20)
-    mRange25 = np.arange(KinkedExample.solution[25].mNrmMin,KinkedExample.solution[25].mNrmMin+10,.01)
-    cKinked25 = KinkedExample.solution[25].cFunc(mRange25)
+    #mRange15 = np.arange(KinkedExample.solution[15].mNrmMin,KinkedExample.solution[15].mNrmMin+10,.01)
+    #cKinked15 = KinkedExample.solution[15].cFunc(mRange15)
+    #mRange20 = np.arange(KinkedExample.solution[20].mNrmMin,KinkedExample.solution[20].mNrmMin+10,.01)
+    #cKinked20 = KinkedExample.solution[20].cFunc(mRange20)
+    #mRange25 = np.arange(KinkedExample.solution[25].mNrmMin,KinkedExample.solution[25].mNrmMin+10,.01)
+    #cKinked25 = KinkedExample.solution[25].cFunc(mRange25)
     
     # Get consumption function in period 15, 20, 25
-    cIRA15 = IRAexample.solution[15].cFunc(mRange15,np.zeros(mRange15.size))
-    cIRA20 = IRAexample.solution[20].cFunc(mRange20,np.zeros(mRange20.size))
-    cIRA25 = IRAexample.solution[25].cFunc(mRange25,np.zeros(mRange25.size))
+    #cIRA15 = IRAexample.solution[15].cFunc(mRange15,np.zeros(mRange15.size))
+    #cIRA20 = IRAexample.solution[20].cFunc(mRange20,np.zeros(mRange20.size))
+    #cIRA25 = IRAexample.solution[25].cFunc(mRange25,np.zeros(mRange25.size))
     
     # Export consumption functions for Kinked and IRA consumers
-    data15 = np.array([mRange15.T,cKinked15.T,cIRA15.T,15*np.ones(mRange15.size).T])
-    data20 = np.array([mRange20.T,cKinked20.T,cIRA20.T,20*np.ones(mRange20.size).T])
-    data25 = np.array([mRange25.T,cKinked25.T,cIRA25.T,25*np.ones(mRange25.size).T])
+    #data15 = np.array([mRange15.T,cKinked15.T,cIRA15.T,15*np.ones(mRange15.size).T])
+    #data20 = np.array([mRange20.T,cKinked20.T,cIRA20.T,20*np.ones(mRange20.size).T])
+    #data25 = np.array([mRange25.T,cKinked25.T,cIRA25.T,25*np.ones(mRange25.size).T])
     
-    data = np.concatenate((data15.T,data20.T,data25.T))
+    #data = np.concatenate((data15.T,data20.T,data25.T))
     
-    np.savetxt('IRA_Results/IRA_Kinked_data.csv',data,delimiter=',',header='mRange,cKinked,cIRA,period')
+    #np.savetxt('IRA_Results/IRA_Kinked_data.csv',data,delimiter=',',header='mRange,cKinked,cIRA,period')
         
     # Plot the consumption functions during working life
     def makecFuncm(n):
@@ -1895,9 +1895,9 @@ def main():
         return cm
     
     print('Consumption function in period 25 for different values of n')
-    #plotFuncs([makecFuncm(n) for n in [0,1,2]],
-    #           IRAexample.solution[18].mNrmMin,5,
-    #           legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
+    plotFuncs([makecFuncm(n) for n in [0,1,2]],
+               IRAexample.solution[18].mNrmMin,5,
+               legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
 
     def makedFuncm(n):
         def dm(m):
@@ -1906,26 +1906,26 @@ def main():
             return IRAexample.solution[18].dFunc(m,ni)
         return dm
     
-    print('Consumption function in period 25 for different values of n')
-    #plotFuncs([makedFuncm(n) for n in [0,1,2]],
-               #IRAexample.solution[18].mNrmMin,5,
-               #legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
+    print('Deposit function in period 25 for different values of n')
+    plotFuncs([makedFuncm(n) for n in [0,1,2]],
+               IRAexample.solution[18].mNrmMin,5,
+               legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
 
     # Simulate some data; results stored in mNrmNow_hist, nNrmNow_hist, 
     # cNrmNow_hist, dNrmNow_hist, pLvlNow_hist, and t_age_hist
-    #if do_simulation:
-        #IRAexample.T_sim = 120
-        #IRAexample.track_vars = ['mNrmNow','nNrmNow','cNrmNow','dNrmNow',
-        #                         'pLvlNow','t_age']
-        #IRAexample.initializeSim()
-        #IRAexample.simulate()
+    if do_simulation:
+        IRAexample.T_sim = 120
+        IRAexample.track_vars = ['mNrmNow','nNrmNow','cNrmNow','dNrmNow',
+                                 'pLvlNow','t_age']
+        IRAexample.initializeSim()
+        IRAexample.simulate()
     
-    #np.savetxt('IRA_Results/m_40.csv',IRAexample.mNrmNow_hist,delimiter=',')
-    #np.savetxt('IRA_Results/n_40.csv',IRAexample.nNrmNow_hist,delimiter=',')
-    #np.savetxt('IRA_Results/c_40.csv',IRAexample.cNrmNow_hist,delimiter=',')
-    #np.savetxt('IRA_Results/d_40.csv',IRAexample.dNrmNow_hist,delimiter=',')
-    #np.savetxt('IRA_Results/p_40.csv',IRAexample.pLvlNow_hist,delimiter=',')
-    #np.savetxt('IRA_Results/t_40.csv',IRAexample.t_age_hist,delimiter=',')
+    np.savetxt('IRA_Results/m_30.csv',IRAexample.mNrmNow_hist.T,delimiter=',')
+    np.savetxt('IRA_Results/n_30.csv',IRAexample.nNrmNow_hist.T,delimiter=',')
+    np.savetxt('IRA_Results/c_30.csv',IRAexample.cNrmNow_hist.T,delimiter=',')
+    np.savetxt('IRA_Results/d_30.csv',IRAexample.dNrmNow_hist.T,delimiter=',')
+    np.savetxt('IRA_Results/p_30.csv',IRAexample.pLvlNow_hist.T,delimiter=',')
+    np.savetxt('IRA_Results/t_30.csv',IRAexample.t_age_hist.T,delimiter=',')
         
 if __name__ == '__main__':
     main()
