@@ -1894,10 +1894,10 @@ def main():
             return IRAexample.solution[18].cFunc(m,ni)
         return cm
     
-    print('Consumption function in period 25 for different values of n')
-    plotFuncs([makecFuncm(n) for n in [0,1,2]],
-               IRAexample.solution[18].mNrmMin,5,
-               legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
+    #print('Consumption function in period 25 for different values of n')
+    #plotFuncs([makecFuncm(n) for n in [0,1,2]],
+    #           IRAexample.solution[18].mNrmMin,5,
+    #           legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
 
     def makedFuncm(n):
         def dm(m):
@@ -1906,10 +1906,10 @@ def main():
             return IRAexample.solution[18].dFunc(m,ni)
         return dm
     
-    print('Deposit function in period 25 for different values of n')
-    plotFuncs([makedFuncm(n) for n in [0,1,2]],
-               IRAexample.solution[18].mNrmMin,5,
-               legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
+    #print('Deposit function in period 25 for different values of n')
+    #plotFuncs([makedFuncm(n) for n in [0,1,2]],
+    #           IRAexample.solution[18].mNrmMin,5,
+    #           legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
 
     # Simulate some data; results stored in mNrmNow_hist, nNrmNow_hist, 
     # cNrmNow_hist, dNrmNow_hist, pLvlNow_hist, and t_age_hist
@@ -1926,6 +1926,7 @@ def main():
     np.savetxt('IRA_Results/d_30.csv',IRAexample.dNrmNow_hist.T,delimiter=',')
     np.savetxt('IRA_Results/p_30.csv',IRAexample.pLvlNow_hist.T,delimiter=',')
     np.savetxt('IRA_Results/t_30.csv',IRAexample.t_age_hist.T,delimiter=',')
+    print('Data From Simulations Exported')
         
 if __name__ == '__main__':
     main()
