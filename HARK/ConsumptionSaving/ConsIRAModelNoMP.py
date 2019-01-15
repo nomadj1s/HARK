@@ -1873,9 +1873,9 @@ def main():
     cKinked25 = KinkedExample.solution[25].cFunc(mRange25)
     
     # Get consumption function in period 15, 20, 25
-    cIRA15 = IRAexample.solution[15].cFunc(mRange15)
-    cIRA20 = IRAexample.solution[20].cFunc(mRange20)
-    cIRA25 = IRAexample.solution[25].cFunc(mRange25)
+    cIRA15 = IRAexample.solution[15].cFunc(mRange15,np.zeros(mRange15.size))
+    cIRA20 = IRAexample.solution[20].cFunc(mRange20,np.zeros(mRange20.size))
+    cIRA25 = IRAexample.solution[25].cFunc(mRange25,np.zeros(mRange25.size))
     
     # Export consumption functions for Kinked and IRA consumers
     data15 = np.array([mRange15.T,cKinked15.T,cIRA15.T,15*np.ones(mRange15.size).T])
