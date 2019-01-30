@@ -230,6 +230,21 @@ init_IRA_30_comp_noMP = copy(init_IRA_30_comp)
 init_IRA_30_comp_noMP['ParallelBool'] = False # Turn off parallel
 
 # -----------------------------------------------------------------------------
+# --- Define all of the parameters for the 30 period consumption IRA model, ---
+# --- full version, without any uncertainty. ----------------------------------
+# -----------------------------------------------------------------------------
+
+init_IRA_30_no_shocks = copy(init_IRA_30)
+init_IRA_30_no_shocks['AgentCount'] = 1 # no need for multiple simulations
+init_IRA_30_no_shocks['aNrmInitStd'] = 0.0 # no wealth hetergeneity
+init_IRA_30_no_shocks['PermShkCount'] = 1
+init_IRA_30_no_shocks['TranShkCount'] = 1
+init_IRA_30_no_shocks['PermShkStd'] = 30*[0.0] # no income shocks
+init_IRA_30_no_shocks['TranShkStd'] = 30*[0.0] # no income shocks
+init_IRA_30_no_shocks['UnempPrb'] = 0
+init_IRA_30_no_shocks['UnempPrbRet'] = 0
+
+# -----------------------------------------------------------------------------
 # --- Define all of the parameters for the a one-period IRA model for ---------
 # --- testing purposes --------------------------------------------------------
 # -----------------------------------------------------------------------------
