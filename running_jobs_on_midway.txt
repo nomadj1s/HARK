@@ -3,6 +3,6 @@
 sinteractive --partition=bigmem2 --time=16:00:00 --ntasks=1 --cpus-per-task=16 --mem-per-cpu=16000
 
 git pull
-module load Ananconda2
+module load Anaconda2
 source activate HARKenv
 
