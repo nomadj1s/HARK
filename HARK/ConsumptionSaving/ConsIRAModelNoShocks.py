@@ -1884,7 +1884,7 @@ def main():
     
     data = np.concatenate((data15.T,data20.T,data25.T))
     
-    np.savetxt('IRA_Results/IRA_Kinked_data.csv',data,delimiter=',',header='mRange,cKinked,cIRA,period')
+    np.savetxt('IRA_Results/IRA_Kinked_data_no_shocks.csv',data,delimiter=',',header='mRange,cKinked,cIRA,period')
         
     # Plot the consumption functions during working life
     def makecFuncm(n):
