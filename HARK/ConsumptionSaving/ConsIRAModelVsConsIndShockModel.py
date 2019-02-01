@@ -1869,54 +1869,55 @@ def main():
     # Compare Consumption Functions
     
     # Get consumption function in periods 15, 20, 25
-    mRange15 = np.arange(KinkedExample.solution[15].mNrmMin,KinkedExample.solution[15].mNrmMin+10,.01)
-    cKinked15 = KinkedExample.solution[15].cFunc(mRange15)
-    mRange20 = np.arange(KinkedExample.solution[20].mNrmMin,KinkedExample.solution[20].mNrmMin+10,.01)
-    cKinked20 = KinkedExample.solution[20].cFunc(mRange20)
-    mRange25 = np.arange(KinkedExample.solution[25].mNrmMin,KinkedExample.solution[25].mNrmMin+10,.01)
-    cKinked25 = KinkedExample.solution[25].cFunc(mRange25)
+    mRange = {}
+    cKinked = {}
+    mRange['15'] = np.arange(KinkedExample.solution[15].mNrmMin,KinkedExample.solution[15].mNrmMin+10,.01)
+    cKinked['15'] = KinkedExample.solution[15].cFunc(mRange['15'])
+    mRange['20'] = np.arange(KinkedExample.solution[20].mNrmMin,KinkedExample.solution[20].mNrmMin+10,.01)
+    cKinked['20'] = KinkedExample.solution[20].cFunc(mRange['20'])
+    mRange['25'] = np.arange(KinkedExample.solution[25].mNrmMin,KinkedExample.solution[25].mNrmMin+10,.01)
+    cKinked['25'] = KinkedExample.solution[25].cFunc(mRange['25'])
     
     # Get consumption function in period 15, 20, 25
-    cIRA15 = IRAexample.solution[15].cFunc(mRange15,np.zeros(mRange15.size))
-    cIRA20 = IRAexample.solution[20].cFunc(mRange20,np.zeros(mRange20.size))
-    cIRA25 = IRAexample.solution[25].cFunc(mRange25,np.zeros(mRange25.size))
+    cIRA = {}
+    cIRA['15'] = IRAexample.solution[15].cFunc(mRange['15'],np.zeros(mRange['15'].size))
+    cIRA['20'] = IRAexample.solution[20].cFunc(mRange['20'],np.zeros(mRange['20'].size))
+    cIRA['25'] = IRAexample.solution[25].cFunc(mRange['25'],np.zeros(mRange['25'].size))
     
     # Export consumption functions for Kinked and IRA consumers
-    data15 = np.array([mRange15.T,cKinked15.T,cIRA15.T,15*np.ones(mRange15.size).T])
-    data20 = np.array([mRange20.T,cKinked20.T,cIRA20.T,20*np.ones(mRange20.size).T])
-    data25 = np.array([mRange25.T,cKinked25.T,cIRA25.T,25*np.ones(mRange25.size).T])
+    data15 = np.array([mRange['15'].T,cKinked['15'].T,cIRA['15'].T,15*np.ones(mRange['15'].size).T])
+    data20 = np.array([mRange['20'].T,cKinked['20'].T,cIRA['20'].T,20*np.ones(mRange['20'].size).T])
+    data25 = np.array([mRange['25'].T,cKinked['25'].T,cIRA['25'].T,25*np.ones(mRange['25'].size).T])
     
     data = np.concatenate((data15.T,data20.T,data25.T))
     
     np.savetxt('IRA_Results/IRA_Kinked_data.csv',data,delimiter=',',header='mRange,cKinked,cIRA,period')
+    
+    # Plot the consumption functions beside each other
+    
+    def comparePlots(period):
+        x = mRange[str(period)]
+        y1 = cKinked[str(period)]
+        y2 = cIRA[str(period)]
+        plt.plot(x,y1,label='Kinked Consumer')
+        plt.plot(x,y2,label='IRA Consumer')
+        plt.xlabel('liquid assets')
+        plt.ylabel('consumption')
+        plt.title('Consumption Functions: Period ' + str(period))
+        plt.legend()
+        plt.grid()
+        plt.savefig('IRA_Results/IRA_Kinked_' + str(period) + '.png')
+        plt.show()
         
-    # Plot the consumption functions during working life
-    def makecFuncm(n):
-        def cm(m):
-            m = np.asarray(m)
-            ni = n*np.ones(len(m))
-            return IRAexample.solution[18].cFunc(m,ni)
-        return cm
+    comparePlots(15)
+    comparePlots(20)
+    comparePlots(25)
     
-    #print('Consumption function in period 25 for different values of n')
-    #plotFuncs([makecFuncm(n) for n in [0,1,2]],
-    #           IRAexample.solution[18].mNrmMin,5,
-    #           legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
+###############################################################################
 
-    def makedFuncm(n):
-        def dm(m):
-            m = np.asarray(m)
-            ni = n*np.ones(len(m))
-            return IRAexample.solution[18].dFunc(m,ni)
-        return dm
+# Run Simulations & Plot Time Series
     
-    #print('Deposit function in period 25 for different values of n')
-    #plotFuncs([makedFuncm(n) for n in [0,1,2]],
-    #           IRAexample.solution[18].mNrmMin,5,
-    #           legend_kwds={'labels': ["n = " + str(n) for n in [0,1,2]]})
 
-    # Simulate some data; results stored in mNrmNow_hist, nNrmNow_hist, 
-    # cNrmNow_hist, dNrmNow_hist, pLvlNow_hist, and t_age_hist
     if do_simulation:
         IRAexample.T_sim = 120
         IRAexample.track_vars = ['aNrmNow','bNrmNow','mNrmNow','nNrmNow',
@@ -1933,6 +1934,102 @@ def main():
     np.savetxt('IRA_Results/p_30_comp.csv',IRAexample.pLvlNow_hist.T,delimiter=',')
     np.savetxt('IRA_Results/t_30_comp.csv',IRAexample.t_age_hist.T,delimiter=',')
     print('Data From Simulations Exported')
+    
+    if do_simulation:
+        KinkedExample.T_sim = 120
+        KinkedExample.track_vars = ['aNrmNow','bNrmNow','mNrmNow','cNrmNow',
+                                    'pLvlNow','t_age']
+        KinkedExample.initializeSim()
+        KinkedExample.simulate()
+        
+    np.savetxt('IRA_Results/a_30_kink.csv',KinkedExample.aNrmNow_hist.T,delimiter=',')
+    np.savetxt('IRA_Results/b_30_kink.csv',KinkedExample.bNrmNow_hist.T,delimiter=',')
+    np.savetxt('IRA_Results/m_30_kink.csv',KinkedExample.mNrmNow_hist.T,delimiter=',')
+    np.savetxt('IRA_Results/n_30_kink.csv',KinkedExample.nNrmNow_hist.T,delimiter=',')
+    np.savetxt('IRA_Results/c_30_kink.csv',KinkedExample.cNrmNow_hist.T,delimiter=',')
+    np.savetxt('IRA_Results/d_30_kink.csv',KinkedExample.dNrmNow_hist.T,delimiter=',')
+    np.savetxt('IRA_Results/p_30_kink.csv',KinkedExample.pLvlNow_hist.T,delimiter=',')
+    np.savetxt('IRA_Results/t_30_kink.csv',KinkedExample.t_age_hist.T,delimiter=',')
+    print('Data From Simulations Exported')
+    
+    # Plot Time Series from Simulations
+    def averageSimulations(plot_list,age_array,p_array,period_T):
+        
+        def collapse_var(x,age,p,t):
+            inflated = x[age == t]*p[age == t]
+            averaged = np.average(inflated)
+            return averaged
+        
+        averagePlot = [[collapse_var(j,age_array,p_array,i) 
+                        for i in range(1,period_T+1)] for j in plot_list]
+        
+        return averagePlot
+    
+    # Plot Kinked Time Series
+    
+    kinked_plot_list = [KinkedExample.mNrmNow_hist,
+                        KinkedExample.cNrmNow_hist,
+                        KinkedExample.aNrmNow_hist]
+    
+    period_T_kink = np.amax(KinkedExample.t_age_hist)
+    
+    m_kinked,c_kinked,a_kinked = averageSimulations(kinked_plot_list,
+                                                    KinkedExample.t_age_hist,
+                                                    KinkedExample.pLvlNow_hist,
+                                                    period_T_kink)
+    
+    age_kink = np.arrange(1,period_T_kink+1)
+    
+    # plot average assets and consumption
+    plt.plot(age_kink,m_kinked, label = 'beginning of period assets')
+    plt.plot(age_kink,a_kinked, label = 'end of period assets')
+    plt.plot(age_kink,c_kinked, label = 'consumption')
+    plt.xlable('age')
+    plt.ylabel('level')
+    plt.title('Kinked Consumer: Times Series')
+    plt.grid()
+    plt.legend()
+    plt.savefig('IRA_Results/KinkedTimeSeries_vs.png')
+    
+    # Plot IRA Time Series
+    
+    ira_plot_list = [IRAexample.mNrmNow_hist,
+                     IRAexample.nNrmNow_hist,
+                     IRAexample.cNrmNow_hist,
+                     IRAexample.dNrmNow_hist,
+                     IRAexample.aNrmNow_hist,
+                     IRAexample.bNrmNow_hist,]
+    
+    period_T_ira = np.amax(IRAexample.t_age_hist)
+    
+    m_ira,n_ira,c_ira,d_ira,a_ira,b_ira = averageSimulations(ira_plot_list,
+                                                    IRAexample.t_age_hist,
+                                                    IRAexample.pLvlNow_hist,
+                                                    period_T_ira)
+    
+    age_ira = np.arrange(1,period_T_ira+1)
+    
+    # plot average assets and consumption
+    plt.plot(age_ira,m_ira, label = 'beginning of period assets')
+    plt.plot(age_ira,a_ira, label = 'end of period assets')
+    plt.plot(age_ira,c_ira, label = 'consumption')
+    plt.xlable('age')
+    plt.ylabel('level')
+    plt.title('IRA Consumer: Times Series')
+    plt.grid()
+    plt.legend()
+    plt.savefig('IRA_Results/IRATimeSeries_vs.png')
+    
+    # plot deposits/withdrawals and illiquid balance (should be zero)
+    plt.plot(age_ira,n_ira, label = 'beginning of period assets')
+    plt.plot(age_ira,b_ira, label = 'end of period assets')
+    plt.plot(age_ira,d_ira, label = 'deposits/withdrawals')
+    plt.xlable('age')
+    plt.ylabel('level')
+    plt.title('IRA Consumer: Deposit Times Series')
+    plt.grid()
+    plt.legend()
+    plt.savefig('IRA_Results/IRADepositTimeSeries_vs.png')
         
 if __name__ == '__main__':
     main()
