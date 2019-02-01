@@ -1826,7 +1826,7 @@ def main():
     do_simulation = True
     
     # Make and solve an example IRA consumer
-    IRAexample = IRAConsumerType(**Params.init_IRA_30_comp)
+    IRAexample = IRAConsumerType(**Params.init_IRA_30_simp)
     IRAexample.cycles = 1 # Make this consumer live a sequence of periods
                           # exactly once
                           
@@ -1899,8 +1899,8 @@ def main():
         x = mRange[str(period)]
         y1 = cKinked[str(period)]
         y2 = cIRA[str(period)]
-        plt.plot(x,y1,label='Kinked Consumer')
-        plt.plot(x,y2,'--',label='IRA Consumer')
+        plt.plot(x,y1,'C1',label='Kinked Consumer')
+        plt.plot(x,y2,'C0--',label='IRA Consumer')
         plt.xlabel('liquid assets')
         plt.ylabel('consumption')
         plt.title('Consumption Functions: Period ' + str(period))
