@@ -2459,7 +2459,7 @@ def main():
     
     # plot average assets and consumption
     t = np.array(range(1,period_T+1))
-    plt.plot(t,m, label="liquid assets")
+    plt.plot(t,m, label="beginning of period assets")
     plt.plot(t,a, label="end of period assets")
     plt.plot(t,c, label="consumption")
     plt.xlabel("age")
