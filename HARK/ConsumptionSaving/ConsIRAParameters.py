@@ -214,9 +214,9 @@ init_IRA_30_simp_noMP['ParallelBool'] = False # Turn off parallel
 init_IRA_30_comp = copy(init_IRA_30)
 
 init_IRA_30_comp['Rsave'] = 1.0 # Never save in this account
-init_IRA_30_comp['Rira'] = 1.02 # Make return on IRA same as liquid account
+init_IRA_30_comp['Rira'] = 1.02 # Make return on IRA same as old liquid account
 init_IRA_30_comp['T_ira'] = -1 # Turn off IRA penalty
-init_IRA_30_comp['MaxIRA'] = 100 # Effectively turn off IRA cap
+init_IRA_30_comp['MaxIRA'] = 10 # Effectively turn off IRA cap
 
 # -----------------------------------------------------------------------------
 # --- Define all of the parameters for the 30 period consumption IRA model, ---
