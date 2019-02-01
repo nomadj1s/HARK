@@ -25,9 +25,9 @@ LivPrb = [0.99,0.9,0.9,0.8,0.8,0.7,0.6,0.4,0.2,0.1]
 
 AgentCount = 10000                  # Number of agents of this type (only 
                                     # matters for simulation)
-aNrmInitMean = 0.0                  # Mean of log initial assets (only matters 
+aNrmInitMean = -5.0                 # Mean of log initial assets (only matters 
                                     # for simulation)
-aNrmInitStd  = 1.0                  # Standard deviation of log initial assets 
+aNrmInitStd  = 0.0                  # Standard deviation of log initial assets 
                                     # (only for simulation)
 pLvlInitMean = 0.0                  # Mean of log initial permanent income 
                                     # (only matters for simulation)

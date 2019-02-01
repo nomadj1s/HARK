@@ -29,6 +29,8 @@ import os
 sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('./'))
 
+import matplotlib.pyplot as plt
+
 from core import NullFunc, HARKobject
 from interpolation import LinearInterp, BilinearInterp, ConstantFunction
 from ConsIndShockModel import ConsIndShockSolver, constructAssetsGrid,\
@@ -1848,7 +1850,7 @@ def main():
     IRAexample.timeFwd()
     
     # Make and solve a 30 period kinked consumer
-    KinkedExample = KinkedRconsumerType(**Params.init_IRA_30_simp)
+    KinkedExample = KinkedRconsumerType(**Params.init_IRA_30)
     KinkedExample.cycles = 1 # Make this consumer live a sequence of periods
                              # exactly once
                              
@@ -1863,6 +1865,8 @@ def main():
           mystr((end_time2-start_time2)/3600)+ ' real hours.')
 
     KinkedExample.timeFwd()
+    
+    # Compare Consumption Functions
     
     # Get consumption function in periods 15, 20, 25
     mRange15 = np.arange(KinkedExample.solution[15].mNrmMin,KinkedExample.solution[15].mNrmMin+10,.01)

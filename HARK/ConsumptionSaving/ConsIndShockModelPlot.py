@@ -2419,7 +2419,7 @@ def constructAssetsGrid(parameters):
 ####################################################################################################
 
 def main():
-    import ConsumerParameters as Params
+    import ConsIRAParameters as Params
     from utilities import plotFuncsDer, plotFuncs
     from time import clock
     mystr = lambda number : "{:.4f}".format(number)
@@ -2428,18 +2428,8 @@ def main():
     
     ###########################################################################
     # Make and solved lifecycle with kinked interest rate
-    param = Params.init_lifecycle
-    del param['Rfree']
-    param['Rboro'] = 1.20
-    param['Rsave'] = 1.02
-    param['BoroCnstArt'] = None
-    param['CubicBool'] = False
-    param['aXtraCount'] = 48
-    param['aNrmInitMean'] = -5.0
-    param['aNrmInitStd'] = 0.0
-    
-    
-    KinkedExample = KinkedRconsumerType(**param)
+
+    KinkedExample = KinkedRconsumerType(**Params.init_IRA_30)
     KinkedExample.cycles = 1
     KinkedExample.solve()
     KinkedExample.unpackcFunc()
