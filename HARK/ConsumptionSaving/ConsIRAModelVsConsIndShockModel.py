@@ -1871,11 +1871,11 @@ def main():
     # Get consumption function in periods 15, 20, 25
     mRange = {}
     cKinked = {}
-    mRange['15'] = np.arange(KinkedExample.solution[15].mNrmMin,KinkedExample.solution[15].mNrmMin+10,.01)
+    mRange['15'] = np.arange(KinkedExample.solution[15].mNrmMin,KinkedExample.solution[15].mNrmMin+3,.01)
     cKinked['15'] = KinkedExample.solution[15].cFunc(mRange['15'])
-    mRange['20'] = np.arange(KinkedExample.solution[20].mNrmMin,KinkedExample.solution[20].mNrmMin+10,.01)
+    mRange['20'] = np.arange(KinkedExample.solution[20].mNrmMin,KinkedExample.solution[20].mNrmMin+3,.01)
     cKinked['20'] = KinkedExample.solution[20].cFunc(mRange['20'])
-    mRange['25'] = np.arange(KinkedExample.solution[25].mNrmMin,KinkedExample.solution[25].mNrmMin+10,.01)
+    mRange['25'] = np.arange(KinkedExample.solution[25].mNrmMin,KinkedExample.solution[25].mNrmMin+3,.01)
     cKinked['25'] = KinkedExample.solution[25].cFunc(mRange['25'])
     
     # Get consumption function in period 15, 20, 25
@@ -1900,7 +1900,7 @@ def main():
         y1 = cKinked[str(period)]
         y2 = cIRA[str(period)]
         plt.plot(x,y1,label='Kinked Consumer')
-        plt.plot(x,y2,label='IRA Consumer')
+        plt.plot(x,y2,'--',label='IRA Consumer')
         plt.xlabel('liquid assets')
         plt.ylabel('consumption')
         plt.title('Consumption Functions: Period ' + str(period))
@@ -1937,17 +1937,14 @@ def main():
     
     if do_simulation:
         KinkedExample.T_sim = 120
-        KinkedExample.track_vars = ['aNrmNow','bNrmNow','mNrmNow','cNrmNow',
+        KinkedExample.track_vars = ['aNrmNow','mNrmNow','cNrmNow',
                                     'pLvlNow','t_age']
         KinkedExample.initializeSim()
         KinkedExample.simulate()
         
     np.savetxt('IRA_Results/a_30_kink.csv',KinkedExample.aNrmNow_hist.T,delimiter=',')
-    np.savetxt('IRA_Results/b_30_kink.csv',KinkedExample.bNrmNow_hist.T,delimiter=',')
     np.savetxt('IRA_Results/m_30_kink.csv',KinkedExample.mNrmNow_hist.T,delimiter=',')
-    np.savetxt('IRA_Results/n_30_kink.csv',KinkedExample.nNrmNow_hist.T,delimiter=',')
     np.savetxt('IRA_Results/c_30_kink.csv',KinkedExample.cNrmNow_hist.T,delimiter=',')
-    np.savetxt('IRA_Results/d_30_kink.csv',KinkedExample.dNrmNow_hist.T,delimiter=',')
     np.savetxt('IRA_Results/p_30_kink.csv',KinkedExample.pLvlNow_hist.T,delimiter=',')
     np.savetxt('IRA_Results/t_30_kink.csv',KinkedExample.t_age_hist.T,delimiter=',')
     print('Data From Simulations Exported')
@@ -1978,18 +1975,19 @@ def main():
                                                     KinkedExample.pLvlNow_hist,
                                                     period_T_kink)
     
-    age_kink = np.arrange(1,period_T_kink+1)
+    age_kink = np.arange(1,period_T_kink+1)
     
     # plot average assets and consumption
     plt.plot(age_kink,m_kinked, label = 'beginning of period assets')
     plt.plot(age_kink,a_kinked, label = 'end of period assets')
     plt.plot(age_kink,c_kinked, label = 'consumption')
-    plt.xlable('age')
+    plt.xlabel('age')
     plt.ylabel('level')
     plt.title('Kinked Consumer: Times Series')
     plt.grid()
     plt.legend()
     plt.savefig('IRA_Results/KinkedTimeSeries_vs.png')
+    plt.show()
     
     # Plot IRA Time Series
     
@@ -2007,29 +2005,31 @@ def main():
                                                     IRAexample.pLvlNow_hist,
                                                     period_T_ira)
     
-    age_ira = np.arrange(1,period_T_ira+1)
+    age_ira = np.arange(1,period_T_ira+1)
     
     # plot average assets and consumption
     plt.plot(age_ira,m_ira, label = 'beginning of period assets')
     plt.plot(age_ira,a_ira, label = 'end of period assets')
     plt.plot(age_ira,c_ira, label = 'consumption')
-    plt.xlable('age')
+    plt.xlabel('age')
     plt.ylabel('level')
     plt.title('IRA Consumer: Times Series')
     plt.grid()
     plt.legend()
     plt.savefig('IRA_Results/IRATimeSeries_vs.png')
+    plt.show()
     
     # plot deposits/withdrawals and illiquid balance (should be zero)
     plt.plot(age_ira,n_ira, label = 'beginning of period assets')
     plt.plot(age_ira,b_ira, label = 'end of period assets')
     plt.plot(age_ira,d_ira, label = 'deposits/withdrawals')
-    plt.xlable('age')
+    plt.xlabel('age')
     plt.ylabel('level')
     plt.title('IRA Consumer: Deposit Times Series')
     plt.grid()
     plt.legend()
     plt.savefig('IRA_Results/IRADepositTimeSeries_vs.png')
+    plt.show()
         
 if __name__ == '__main__':
     main()
