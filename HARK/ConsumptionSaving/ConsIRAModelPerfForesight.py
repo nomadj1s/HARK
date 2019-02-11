@@ -898,7 +898,26 @@ class ConsIRAPFSolver(HARKobject):
         self.MaxIRA         = MaxIRA
         self.DistIRA        = DistIRA
     
-    
+    def NoPenSolution(self):
+        '''
+        Solves one period problem when the penalty for early IRA withdrawals
+        no longer applies.
+        
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        solution : NoPenSolution
+            The solution to the one period problem with no penalty
+        '''
+        
+        # Go from most aggressibe borrowing to most aggressive saving
+
+        # Liquidate illquid account
+        
+        
         
 # ==========================
 # === General IRA model ===
