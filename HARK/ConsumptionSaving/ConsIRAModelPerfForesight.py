@@ -629,6 +629,135 @@ class TerminalMargValueFunc2D(HARKobject):
         '''
         return utilityP(self.cFunc(m,n),gam=self.CRRA)
     
+class EndOfPeriodPFvalueFunc(HARKobject):
+    '''
+    A class representing the perfect foresight end-of-period value function,
+    for a consumption-saving model with a liquid account and an IRA-like
+    illiquid savings account. Takes as inputs a, end-of-period liquid
+    assets and b, end of period illiquid assets, and evaluates the
+    next-period value function given beginning of period assets.
+    '''
+    distance_criteria = ['vFunc','yNext','Rsave','Rira']
+    
+    def __init__(self, vFunc,yNext,Rsave,Rira):
+        '''
+        The constructor for an end-of-period value function.
+        
+        Parameters
+        ----------
+        vFunc : function
+            The value function for the next period, defined over beginning
+            of the period money on hand and illiquid account balance:
+            v = v(m,n).
+        yNext : float
+            The level of income for the next period: m = yNext + Rsave * a.
+        Rsave : float
+            The interest factor on liquid assets.
+        Rira : float
+            The interest factor on illiquid assets.
+            
+        Returns
+        -------
+        None
+        '''
+        self.vFunc = deepcopy(vFunc)
+        self.ynext = yNext
+        self.Rsave = Rsave
+        self.Rira = Rira
+    
+    def __call__(self,a,b):
+        '''
+        Evaluate the end-of-period value function at given levels of liquid 
+        market resources a and illiquid assets b.
+
+        Parameters
+        ----------
+        a : float or np.array
+            Liquid market resources (normalized by permanent income).
+        b : flot or np.array
+            Illiquid market resources (normalized by permanent income)
+
+        Returns
+        -------
+        w : float or np.array
+            End-of-periord value given liquid and illiquid market resources, 
+            w(a,b).
+        '''
+        assert np.array(b >= 0).all(), 'b should be non-negative'
+        
+        w = self.vFunc(self.yNext + self.Rsave * a,self.Rira * b)
+        
+        return w
+    
+class EndOfPeriodPFvalueFuncP(HARKobject):
+    '''
+    A class representing the perfect foresight end-of-period marginal 
+    value function, for a consumption-saving model with a liquid account and an
+    IRA-like illiquid savings account. Takes as inputs a, end-of-period liquid
+    assets and b, end of period illiquid assets, and evaluates the
+    next-period marginal value function given beginning of period assets.
+    '''
+    distance_criteria = ['vFuncP','yNext','Rsave','Rira']
+    
+    def __init__(self, vFuncP,yNext,Rsave,Rira):
+        '''
+        The constructor for an end-of-period value function.
+        
+        Parameters
+        ----------
+        vFuncP : function
+            The marginal value function for the next period, defined over 
+            beginning of the period money on hand and illiquid account balance:
+            vP = dv(m,n)/dx, where x is either m or n.
+        yNext : float
+            The level of income for the next period: m = yNext + Rsave * a.
+        Rsave : float
+            The interest factor on liquid assets.
+        Rira : float
+            The interest factor on illiquid assets.
+            
+        Returns
+        -------
+        None
+        '''
+        self.vFuncP = deepcopy(vFuncP)
+        self.ynext = yNext
+        self.Rsave = Rsave
+        self.Rira = Rira
+    
+    def __call__(self,a,b,arg):
+        '''
+        Evaluate the end-of-period value function at given levels of liquid 
+        market resources a and illiquid assets b.
+
+        Parameters
+        ----------
+        a : float or np.array
+            Liquid market resources (normalized by permanent income).
+        b : flot or np.array
+            Illiquid market resources (normalized by permanent income)
+        arg : binary
+            0 = derivative wrt a, 1 = derivative wrt b
+
+        Returns
+        -------
+        wP : float or np.array
+            End-of-periord mraginal value given liquid and illiquid market 
+            resources, dw(a,b)/x, where x = a or b.
+        '''
+        assert np.array(b >= 0).all(), 'b should be non-negative'
+        assert arg in [0,1], 'arg should be 0 or 1'
+        
+        if arg == 0:
+            wP = self.Rsave *\
+                self.vFuncP(self.yNext + self.Rsave * a,self.Rira * b,0)
+        else:
+            wP = self.Rira *\
+                self.vFuncP(self.yNext + self.Rsave * a,self.Rira * b,1)
+        
+        return wP
+        
+    
 class ConsIRAPFSolution(HARKobject):
     '''
     A class representing the perfect foresight solution of a single period of a 
@@ -644,7 +773,7 @@ class ConsIRAPFSolution(HARKobject):
     distance_criteria = ['cFunc','dFunc']
     
     def __init__(self, cFunc=None, dFunc=None, policyFunc=None, vFunc=None, 
-                 vPmFunc=None, vPnFunc=None, regimeFunc=None):
+                 vPFunc=None, EndOfPeriodvFunc=None, EndOfPeriodvFuncP=None):
         '''
         The constructor for a new ConsumerIRAPFSolution object.
 
@@ -664,17 +793,17 @@ class ConsIRAPFSolution(HARKobject):
             The beginning-of-period value function for this period, defined 
             over liquiud market resources and illiquid account balance: 
             v = vFunc(m,n)
-        vPmFunc : function
+        vPFunc : function
             The beginning-of-period marginal value function, with respect to
-            m, for this period, defined over liquiud market resources and 
-            illiquid account balance: vP = dvfunc(m,n)/dm
-        vPnFunc : function
-            The beginning-of-period marginal value function, with respect to
-            n, for this period, defined over liquiud market resources and 
-            illiquid account balance: vP = dvfunc(m,n)/dn
-        regimeFunc : function
-            Keeps track of whether the consumer is a corner, kink, or intertior
-            solution, as a function of m and n
+            either m or n, for this period, defined over liquiud market 
+            resources and illiquid account balance: vP = dvfunc(m,n)/dx for
+            x = m or n.
+        EndOfPeriodvFunc : function
+            The end-of-period value function for previous period given liquid 
+            and illiquid assets: v = v(a,b)
+        EndOfPeriodvFuncP : function
+            The end-of-period marginal value function for previous periood 
+            given liquid and illiquid assets: vP = dv(a,b)/dx, x = a or b.
 
         Returns
         -------
@@ -689,18 +818,19 @@ class ConsIRAPFSolution(HARKobject):
             policyFunc = NullFunc()
         if vFunc is None:
             vFunc = NullFunc()
-        if vPmFunc is None:
-            vPmFunc = NullFunc()
-        if vPnFunc is None:
-            vPnFunc = NullFunc()
-        if regimeFunc is None:
-            regimeFunc = NullFunc()
+        if vPFunc is None:
+            vPFunc = NullFunc()
+        if EndOfPeriodvFunc is None:
+            EndOfPeriodvFunc = NullFunc()
+        if EndOfPeriodvFuncP is None:
+            EndOfPeriodvFuncP = NullFunc()
         self.cFunc        = cFunc
         self.dFunc        = dFunc
         self.policyFunc   = policyFunc
         self.vFunc        = vFunc
-        self.vPmFunc      = vPmFunc
-        self.vPnFunc      = vPnFunc
+        self.vPFunc      = vPFunc
+        self.EndOfPeriodvFunc = EndOfPeriodvFunc
+        self.EndOfPeriodvFuncP = EndOfPeriodvFuncP
         
 # ====================================
 # === Perfect foresight IRA model ===
@@ -711,6 +841,64 @@ class ConsIRAPFSolver(HARKobject):
     A class for solving a period of a perfect foresight consumption-saving 
     problem, with an illiquid and liquid account. 
     '''
+    def __init__(self,solution_next,Income,DiscFac,CRRA,Rsave,Rira,PenIRA,
+                 MaxIRA,DistIRA):
+        '''
+        Constructor for solver for prefect foresight consumption-saving
+        problem with liquid and IRA-like illiquid savings account.
+        
+        Parameters
+        ----------
+        solution_next : ConsumerSolution
+            The solution to next period's one period problem.
+        Income : current period income
+            Income for this period
+        DiscFac : float
+            Intertemporal discount factor for future utility.
+        CRRA : float
+            Coefficient of relative risk aversion.
+        Rsave: float
+            Interest factor on liquid assets between this period and the 
+            succeeding period when assets are positive.
+        Rira:  float
+            Interest factor on illiquid assets between this period and the 
+            succeeding period.
+        PenIRA: float
+            Penalty for early withdrawals (d < 0) from the illiqui account, 
+            i.e. before t = T_ira.
+        MaxIRA: float
+            Maximum allowable IRA deposit, d <= MaxIRA
+        DistIRA: float or None
+            Number of periods between current period and T_ira, i.e. T_ira - t.
+            If DistIRA == None, T_ira > T_cycle, i.e. no expiration.
+        
+        Returns
+        -------
+        None
+        '''
+        assert Rira >= Rsave, 'Illiquid account must have higher return'
+        
+        # We ask that HARK users define single-letter variables they use in a 
+        # dictionary attribute called notation.
+        # Do that first.
+        self.notation = {'a': 'liquid assets after all actions',
+                         'b': 'illiquid assets after all actions',
+                         'm': 'liquid market resources at decision time',
+                         'n': 'illiduid market resources at decision time',
+                         'c': 'consumption',
+                         'd': 'illiquid deposit/withdrawal'}
+        
+        self.solution_next  = solution_next
+        self.Income         = Income
+        self.DiscFac        = DiscFac
+        self.CRRA           = CRRA
+        self.Rsave          = Rsave
+        self.Rira           = Rira
+        self.PenIRA         = PenIRA
+        self.MaxIRA         = MaxIRA
+        self.DistIRA        = DistIRA
+    
+    
         
 # ==========================
 # === General IRA model ===
