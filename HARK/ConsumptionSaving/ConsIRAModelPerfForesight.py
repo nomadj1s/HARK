@@ -689,7 +689,7 @@ class EndOfPeriodPFvalueFunc(HARKobject):
         
         return w
     
-class EndOfPeriodPFvalueFuncP(HARKobject):
+class EndOfPeriodPFvaluePfuncA(HARKobject):
     '''
     A class representing the perfect foresight end-of-period marginal 
     value function, for a consumption-saving model with a liquid account and an
@@ -697,18 +697,18 @@ class EndOfPeriodPFvalueFuncP(HARKobject):
     assets and b, end of period illiquid assets, and evaluates the
     next-period marginal value function given beginning of period assets.
     '''
-    distance_criteria = ['vFuncP','yNext','Rsave','Rira']
+    distance_criteria = ['vPfuncM','yNext','Rsave','Rira']
     
-    def __init__(self, vFuncP,yNext,Rsave,Rira):
+    def __init__(self,vPfuncM,yNext,Rsave,Rira):
         '''
         The constructor for an end-of-period value function.
         
         Parameters
         ----------
-        vFuncP : function
+        vPfuncM : function
             The marginal value function for the next period, defined over 
             beginning of the period money on hand and illiquid account balance:
-            vP = dv(m,n)/dx, where x is either m or n.
+            vP = dv(m,n)/dm.
         yNext : float
             The level of income for the next period: m = yNext + Rsave * a.
         Rsave : float
@@ -720,12 +720,12 @@ class EndOfPeriodPFvalueFuncP(HARKobject):
         -------
         None
         '''
-        self.vFuncP = deepcopy(vFuncP)
+        self.vPfuncM = deepcopy(vPfuncM)
         self.ynext = yNext
         self.Rsave = Rsave
         self.Rira = Rira
     
-    def __call__(self,a,b,arg):
+    def __call__(self,a,b):
         '''
         Evaluate the end-of-period value function at given levels of liquid 
         market resources a and illiquid assets b.
@@ -736,27 +736,80 @@ class EndOfPeriodPFvalueFuncP(HARKobject):
             Liquid market resources (normalized by permanent income).
         b : flot or np.array
             Illiquid market resources (normalized by permanent income)
-        arg : binary
-            0 = derivative wrt a, 1 = derivative wrt b
 
         Returns
         -------
         wP : float or np.array
             End-of-periord mraginal value given liquid and illiquid market 
-            resources, dw(a,b)/x, where x = a or b.
+            resources, dw(a,b)/a.
         '''
         assert np.array(b >= 0).all(), 'b should be non-negative'
-        assert arg in [0,1], 'arg should be 0 or 1'
         
-        if arg == 0:
-            wP = self.Rsave *\
-                self.vFuncP(self.yNext + self.Rsave * a,self.Rira * b,0)
-        else:
-            wP = self.Rira *\
-                self.vFuncP(self.yNext + self.Rsave * a,self.Rira * b,1)
-        
+        wP = self.Rsave *\
+             self.vPfuncM(self.yNext + self.Rsave * a,self.Rira * b)
+             
         return wP
+
+class EndOfPeriodPFvaluePfuncB(HARKobject):
+    '''
+    A class representing the perfect foresight end-of-period marginal 
+    value function, for a consumption-saving model with a liquid account and an
+    IRA-like illiquid savings account. Takes as inputs a, end-of-period liquid
+    assets and b, end of period illiquid assets, and evaluates the
+    next-period marginal value function given beginning of period assets.
+    '''
+    distance_criteria = ['vPfuncN','yNext','Rsave','Rira']
+    
+    def __init__(self,vPfuncN,yNext,Rsave,Rira):
+        '''
+        The constructor for an end-of-period value function.
         
+        Parameters
+        ----------
+        vPfuncN : function
+            The marginal value function for the next period, defined over 
+            beginning of the period money on hand and illiquid account balance:
+            vP = dv(m,n)/dn.
+        yNext : float
+            The level of income for the next period: m = yNext + Rsave * a.
+        Rsave : float
+            The interest factor on liquid assets.
+        Rira : float
+            The interest factor on illiquid assets.
+            
+        Returns
+        -------
+        None
+        '''
+        self.vPfuncN = deepcopy(vPfuncN)
+        self.ynext = yNext
+        self.Rsave = Rsave
+        self.Rira = Rira
+    
+    def __call__(self,a,b):
+        '''
+        Evaluate the end-of-period value function at given levels of liquid 
+        market resources a and illiquid assets b.
+
+        Parameters
+        ----------
+        a : float or np.array
+            Liquid market resources (normalized by permanent income).
+        b : flot or np.array
+            Illiquid market resources (normalized by permanent income)
+
+        Returns
+        -------
+        wP : float or np.array
+            End-of-periord mraginal value given liquid and illiquid market 
+            resources, dw(a,b)/b.
+        '''
+        assert np.array(b >= 0).all(), 'b should be non-negative'
+        
+        wP = self.Rira *\
+             self.vPfuncN(self.yNext + self.Rsave * a,self.Rira * b)
+             
+        return wP
     
 class ConsIRAPFSolution(HARKobject):
     '''
@@ -765,15 +818,16 @@ class ConsIRAPFSolution(HARKobject):
     savings account. The solution must include a consumption function, an
     optimal illiquid deposit function, value function, marginal value 
     function with respect to the illiquid asset, and marginal value function
-    with respect to the liquid asset. One additional function, regimeFunc, keeps
-    track of whether we are at a corner, kink, or interior solution.
+    with respect to the liquid asset. One additional function, regimeFunc, 
+    keeps track of whether we are at a corner, kink, or interior solution.
 
     In the perfect foresight model, 
     '''
     distance_criteria = ['cFunc','dFunc']
     
     def __init__(self, cFunc=None, dFunc=None, policyFunc=None, vFunc=None, 
-                 vPFunc=None, EndOfPeriodvFunc=None, EndOfPeriodvFuncP=None):
+                 vPFuncM=None, vPFuncN=None, EndOfPeriodvFunc=None, 
+                 EndOfPeriodvPFuncA=None, EndOfPeriodvPFuncB=None):
         '''
         The constructor for a new ConsumerIRAPFSolution object.
 
@@ -793,17 +847,23 @@ class ConsIRAPFSolution(HARKobject):
             The beginning-of-period value function for this period, defined 
             over liquiud market resources and illiquid account balance: 
             v = vFunc(m,n)
-        vPFunc : function
+        vPFuncM : function
             The beginning-of-period marginal value function, with respect to
-            either m or n, for this period, defined over liquiud market 
-            resources and illiquid account balance: vP = dvfunc(m,n)/dx for
-            x = m or n.
+            m , for this period, defined over liquiud market resources and 
+            illiquid account balance: vP = dvfunc(m,n)/dm.
+        vPFuncN : function
+            The beginning-of-period marginal value function, with respect to
+            n, for this period, defined over liquiud market resources and 
+            illiquid account balance: vP = dvfunc(m,n)/n.
         EndOfPeriodvFunc : function
             The end-of-period value function for previous period given liquid 
             and illiquid assets: v = v(a,b)
-        EndOfPeriodvFuncP : function
+        EndOfPeriodvPFuncA : function
             The end-of-period marginal value function for previous periood 
-            given liquid and illiquid assets: vP = dv(a,b)/dx, x = a or b.
+            given liquid and illiquid assets: vP = dv(a,b)/da.
+         EndOfPeriodvPFuncB : function
+            The end-of-period marginal value function for previous periood 
+            given liquid and illiquid assets: vP = dv(a,b)/db.
 
         Returns
         -------
@@ -818,19 +878,33 @@ class ConsIRAPFSolution(HARKobject):
             policyFunc = NullFunc()
         if vFunc is None:
             vFunc = NullFunc()
-        if vPFunc is None:
-            vPFunc = NullFunc()
+        if vPFuncM is None:
+            vPFuncM = NullFunc()
+        if vPFuncN is None:
+            vPFuncN = NullFunc()
         if EndOfPeriodvFunc is None:
             EndOfPeriodvFunc = NullFunc()
-        if EndOfPeriodvFuncP is None:
-            EndOfPeriodvFuncP = NullFunc()
+        if EndOfPeriodvPFuncA is None:
+            EndOfPeriodvPFuncA = NullFunc()
+        if EndOfPeriodvPFuncB is None:
+            EndOfPeriodvPFuncB = NullFunc()
         self.cFunc        = cFunc
         self.dFunc        = dFunc
         self.policyFunc   = policyFunc
         self.vFunc        = vFunc
-        self.vPFunc      = vPFunc
+        self.vPFuncM      = vPFuncM
+        self.vPFuncN      = vPFuncN
         self.EndOfPeriodvFunc = EndOfPeriodvFunc
-        self.EndOfPeriodvFuncP = EndOfPeriodvFuncP
+        self.EndOfPeriodvPFuncA = EndOfPeriodvPFuncA
+        self.EndOfPeriodvPFuncB = EndOfPeriodvPFuncB
+        
+class NoPenSolution(HARKobject):
+    '''
+    A class for representing the consumption, deposit, value function and
+    marginal value functions for the one-period problem with an IRA and perfect
+    foresight, in a period where the early withdrawal no longer applies.
+    '''
+    
         
 # ====================================
 # === Perfect foresight IRA model ===
@@ -1642,15 +1716,7 @@ class ConsIRASolver(ConsIndShockSolver):
         Solves a one period consumption saving problem with liquid and illiquid
         assets.
 
-        Parameters
-        ----------
-        None
-
-        Returns
-        -------
-        solution : ConsIRASolution
-            The solution to the one period problem.
-        '''
+        v
         aNrm,bNrm = self.prepareToCalcEndOfPrdvAndvP()
         EndOfPrdv,EndOfPrdvP = self.calcEndOfPrdvAndvP(self.mNrmNext,
                                                         self.nNrmNext,
