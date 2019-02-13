@@ -898,13 +898,125 @@ class ConsIRAPFSolution(HARKobject):
         self.EndOfPeriodvPFuncA = EndOfPeriodvPFuncA
         self.EndOfPeriodvPFuncB = EndOfPeriodvPFuncB
         
+class IntIlliquidSaver(HARKobject):
+    '''
+    A class to create the first-order condition for interior illiquid savers.
+    '''
+    distance_criteria = []
+    
+    def __init__(self,uPNext,Income,DiscFac,CRRA,DiscFac,Rira):
+        '''
+        Constructor for illiquid saver first-order condition.
+         
+        Parameters
+        ----------
+        uPNext : function
+            End of period marginal value function with respect to illiquid
+            asset
+        Income : float
+            Income for this period
+        DiscFac : float
+            Intertemporal discount factor for future utility.
+        CRRA : float
+            Coefficient of relative risk aversion.
+        Rira:  float
+            Interest factor on illiquid assets between this period and the 
+            succeeding period.
+        '''
+        self.uPNext         = uPNext
+        self.Income         = Income
+        self.DiscFac        = DiscFac
+        self.CRRA           = CRRA
+        self.Rira           = Rira
+    
+    def __call__(self,d,m,n):
+        '''
+        Evaluate the first order condition for an illiquid saver.
+        
+        Parameters
+        ----------
+        d : float
+        
+        '''
+         
 class NoPenSolution(HARKobject):
     '''
     A class for representing the consumption, deposit, value function and
     marginal value functions for the one-period problem with an IRA and perfect
     foresight, in a period where the early withdrawal no longer applies.
     '''
+    distance_criteria = ['Income','DiscFac','CRRA','Rsave','EndOfPeriodvFunc']
     
+    def __init__(self,Income,DiscFac,CRRA,Rsave,Rira,MaxIRA,EndOfPeriodvFunc,
+                 EndOfPeriodvPFuncA,EndOfPeriodvPFuncB):
+        '''
+        Constructor for solution to perfect foresight IRA problem when
+        the penalty on the IRA no longer applies. Takes as inputs the
+        end of period value function and marginal value functions using the
+        solution from the next period.
+        
+        Parameters
+        ----------
+        Income : float
+            Income for this period
+        DiscFac : float
+            Intertemporal discount factor for future utility.
+        CRRA : float
+            Coefficient of relative risk aversion.
+        Rsave: float
+            Interest factor on liquid assets between this period and the 
+            succeeding period when assets are positive.
+        Rira:  float
+            Interest factor on illiquid assets between this period and the 
+            succeeding period.
+        MaxIRA: float
+            Maximum allowable IRA deposit, d <= MaxIRA
+        EndOfPeriodvFunc : function
+            The end-of-period value function for previous period given liquid 
+            and illiquid assets: v = v(a,b)
+        EndOfPeriodvPFuncA : function
+            The end-of-period marginal value function for previous periood 
+            given liquid and illiquid assets: vP = dv(a,b)/da.
+         EndOfPeriodvPFuncB : function
+            The end-of-period marginal value function for previous periood 
+            given liquid and illiquid assets: vP = dv(a,b)/db.
+
+        Returns
+        -------
+        None
+        '''
+        self.Income         = Income
+        self.DiscFac        = DiscFac
+        self.CRRA           = CRRA
+        self.Rsave          = Rsave
+        self.Rira           = Rira
+        self.MaxIRA         = MaxIRA
+        self.EndOfPeriodvFunc = EndOfPeriodvFunc
+        self.EndOfPeriodvPFuncA = EndOfPeriodvPFuncA
+        self.EndOfPeriodvPFuncB = EndOfPeriodvPFuncB
+        
+    def __call__(self,m,n):
+        '''
+        Solve for consumption, deposit/withdrawals, value function, and
+        marginal value functions given liquid market resources m and previously
+        illiquid savings n.
+        '''
+        
+        # Check if illiquid savings should be liquidated
+        corner_1 = 0
+        
+        uPNow_liq = utilityP(self.Income + m + n,gam=self.CRRA)
+        uPNext_liq = self.DiscFac * self.EndOfPeriodvPFuncB(0,0)
+        
+        if uPNow_liq > uPNext_liq:
+            corner_1 = 1
+        
+        # Check if partial withdrawal or deposit is made
+        
+        interior_1 = 0
+        
+        
+        
         
 # ====================================
 # === Perfect foresight IRA model ===
@@ -925,7 +1037,7 @@ class ConsIRAPFSolver(HARKobject):
         ----------
         solution_next : ConsumerSolution
             The solution to next period's one period problem.
-        Income : current period income
+        Income : float
             Income for this period
         DiscFac : float
             Intertemporal discount factor for future utility.
