@@ -902,9 +902,9 @@ class IntIlliquidSaver(HARKobject):
     '''
     A class to create the first-order condition for interior illiquid savers.
     '''
-    distance_criteria = []
+    distance_criteria = ['uPNext','Income','DiscFac','CRRA','Rira']
     
-    def __init__(self,uPNext,Income,DiscFac,CRRA,DiscFac,Rira):
+    def __init__(self,uPNext,Income,DiscFac,CRRA,Rira):
         '''
         Constructor for illiquid saver first-order condition.
          
@@ -936,8 +936,22 @@ class IntIlliquidSaver(HARKobject):
         Parameters
         ----------
         d : float
-        
+            deposit or withdrawal
+        m : float
+            liquid market resources
+        n : float
+            illiquid savings balance
+            
+        Returns
+        -------
+        FOC : difference in marginal utility and marginal value function.        
         '''
+        cNow = self.Income + m - d
+        a = 0
+        b = n + d
+        
+        foc = utilityP(cNow,gam-self.CRRA) - self.DiscFac*self.uPNext(a,b)
+        
          
 class NoPenSolution(HARKobject):
     '''
@@ -1005,17 +1019,15 @@ class NoPenSolution(HARKobject):
         # Check if illiquid savings should be liquidated
         corner_1 = 0
         
-        uPNow_liq = utilityP(self.Income + m + n,gam=self.CRRA)
-        uPNext_liq = self.DiscFac * self.EndOfPeriodvPFuncB(0,0)
-        
-        if uPNow_liq > uPNext_liq:
-            corner_1 = 1
+        if n < utilityP_inv(self.DiscFac * self.EndOfPeriodvPFuncB(0,0),
+                            gam=self.CRRA) - self.Income - m:
+            corner_1 = 0
         
         # Check if partial withdrawal or deposit is made
         
         interior_1 = 0
         
-        
+        if 
         
         
 # ====================================
