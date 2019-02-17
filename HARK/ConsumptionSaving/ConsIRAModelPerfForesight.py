@@ -1026,9 +1026,142 @@ class NoPenSolution(HARKobject):
         # Check if partial withdrawal or deposit is made
         
         interior_1 = 0
+
+class ConsIRA5Period4(HARKobject):
+    '''
+    Closed form solution for 5-period IRA consumer with perfect foresight.
+    Period 4 is the last period (the first period is 0).
+    '''
+    distance_criteria = ['period']
+    
+    def __init__(self):
+        '''
+        Constructor for period 4 solution.
         
-        if 
+        Parameters
+        ----------
+        None
         
+        Returns
+        -------
+        None
+        '''
+        self.period = 4
+        
+    def __call__(self,m,n):
+        '''
+        Evaluate consumption decision for period 4.
+        
+        Parameters
+        ----------
+        m : float
+            Cash on hand, including period 4 income and liquid assets.
+        n : float
+            Illiquid account balance.
+        
+        Returns
+        -------
+        c : float
+            Consumption in period 4.
+        '''
+        
+        c = m + n
+        
+        return c
+
+class ConsIRA5Period3(HARKobject):
+    '''
+    Closed form solution for 5-period IRA consumer with perfect foresight.
+    Period 4 is the last period (the first period is 0).
+    '''
+    distance_criteria = ['period','IncomeProfile','Disc','CRRA','Rsave',
+                         'Rira','MaxIRA']
+    
+    def __init__(self,IncomeProfile,DiscFac,CRRA,Rsave,Rira,MaxIRA):
+        '''
+        Constructor for period 4 solution.
+        
+        Parameters
+        ----------
+        IncomeProfile : np.array
+            Income each period from period 0 to 4.
+        DiscFac : float
+            Intertemporal discount factor for future utility.
+        CRRA : float
+            Coefficient of relative risk aversion.
+        Rsave: float
+            Interest factor on liquid assets between this period and the 
+            succeeding period when assets are positive.
+        Rira:  float
+            Interest factor on illiquid assets between this period and the 
+            succeeding period.
+        MaxIRA: float
+            Maximum allowable IRA deposit, d <= MaxIRA
+        
+        Returns
+        -------
+        None
+        '''
+        self.period = 3
+        self.IncomeProfile  = IncomeProfile
+        self.DiscFac        = DiscFac
+        self.CRRA           = CRRA
+        self.Rsave          = Rsave
+        self.Rira           = Rira
+        self.MaxIRA         = MaxIRA
+        self.y4             = IncomeProfile[4]
+    
+    def __call__(self,m,n):
+        '''
+        Evaluate optimal consupmtion in period 3.
+        
+        Parameters
+        ----------
+        Parameters
+        ----------
+        m : float
+            Cash on hand, including period 3 income and liquid assets.
+        n : float
+            Illiquid account balance.
+        
+        Returns
+        -------
+        c : float
+            Consumption in period 3.
+        '''
+        
+        d_int = ( ((self.DiscFac*self.Rira)**(1/self.CRRA)*(m)
+                   - self.y4 - self.Rira*n)
+                  /((self.DiscFac*self.Rira)**(1/self.CRRA)+self.Rira) )
+        
+        # Liquidate illiquid account
+        if d_int < -n:
+            liq = 1
+            c_liq = m + n
+            d_liq = -n
+            v_liq = utility(c_liq) + self.DiscFac*utility(self.y4)
+            
+        # Interior solution, partial withdrawal or saving
+        if d_int >= -n and d_int < self.MaxIRA:
+            inter = 1
+            c_int = m - d_int
+            v_int = utility(c_int) + \
+                    self.DiscFac*utility(self.y4 + self.Rira*(n + d_int))
+        
+        # Iliquid savings cap & no liquid savings
+        liq_cap = ( (self.DiscFac**(1/self.CRRA)*(m) - self.y4 - self.Rira*n)/
+                    (self.DiscFac**(1/self.CRRA) + self.Rira) )
+        
+        if d_int >= self.MaxIRA and self.MaxIRA > liq_cap:
+            cap = 1
+            c_cap = m - self.MaxIRA
+            v_cap = utility(c_cap) + \
+                    self.DiscFac*utility(self.y4 + self.Rira*(n + self.MaxIRA))
+        
+        # Illiquid savings cap & liquid savings
+        if liq_cap > self.MaxIRA:
+            cap_save = 1
+            c_
         
 # ====================================
 # === Perfect foresight IRA model ===
@@ -1094,27 +1227,7 @@ class ConsIRAPFSolver(HARKobject):
         self.Rira           = Rira
         self.PenIRA         = PenIRA
         self.MaxIRA         = MaxIRA
-        self.DistIRA        = DistIRA
-    
-    def NoPenSolution(self):
-        '''
-        Solves one period problem when the penalty for early IRA withdrawals
-        no longer applies.
-        
-        Parameters
-        ----------
-        None
-
-        Returns
-        -------
-        solution : NoPenSolution
-            The solution to the one period problem with no penalty
-        '''
-        
-        # Go from most aggressibe borrowing to most aggressive saving
-
-        # Liquidate illquid account
-        
+        self.DistIRA        = DistIRA        
         
         
 # ==========================
