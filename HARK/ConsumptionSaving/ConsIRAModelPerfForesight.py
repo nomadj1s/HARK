@@ -950,7 +950,9 @@ class IntIlliquidSaver(HARKobject):
         a = 0
         b = n + d
         
-        foc = utilityP(cNow,gam-self.CRRA) - self.DiscFac*self.uPNext(a,b)
+        foc = utilityP(cNow,gam=self.CRRA) - self.DiscFac*self.uPNext(a,b)
+        
+        return foc
         
          
 class NoPenSolution(HARKobject):
@@ -1026,6 +1028,8 @@ class NoPenSolution(HARKobject):
         # Check if partial withdrawal or deposit is made
         
         interior_1 = 0
+        
+        return corner_1*interior_1 # This is not complete, needs to be fixed
 
 class ConsIRA5Period4(HARKobject):
     '''
@@ -1034,19 +1038,21 @@ class ConsIRA5Period4(HARKobject):
     '''
     distance_criteria = ['period']
     
-    def __init__(self):
+    def __init__(self,output='all'):
         '''
         Constructor for period 4 solution.
         
         Parameters
         ----------
-        None
+        output : string
+            Whether consumption, deposit, or value function is output.
         
         Returns
         -------
         None
         '''
         self.period = 4
+        self.output = output
         
     def __call__(self,m,n):
         '''
@@ -1063,11 +1069,24 @@ class ConsIRA5Period4(HARKobject):
         -------
         c : float
             Consumption in period 4.
+        d : float
+            Withdrawal in period 4.
+        v : float
+            Value function in period 4.
         '''
         
         c = m + n
+        d = -n
+        v = utility(c,gam=self.CRRA)
         
-        return c
+        if self.output == 'all':
+            return c, d, v
+        elif self.output == 'cFunc':
+            return c
+        elif self.output == 'dFunc':
+            return d
+        elif self.output =='vFunc':
+            return v
 
 class ConsIRA5Period3(HARKobject):
     '''
@@ -1077,7 +1096,8 @@ class ConsIRA5Period3(HARKobject):
     distance_criteria = ['period','IncomeProfile','Disc','CRRA','Rsave',
                          'Rira','MaxIRA']
     
-    def __init__(self,IncomeProfile,DiscFac,CRRA,Rsave,Rira,MaxIRA):
+    def __init__(self,IncomeProfile,DiscFac,CRRA,Rsave,Rira,MaxIRA,
+                 output='all'):
         '''
         Constructor for period 4 solution.
         
@@ -1097,6 +1117,8 @@ class ConsIRA5Period3(HARKobject):
             succeeding period.
         MaxIRA: float
             Maximum allowable IRA deposit, d <= MaxIRA
+        output : string
+            Whether consumption, deposit, or value function is output.
         
         Returns
         -------
@@ -1110,6 +1132,7 @@ class ConsIRA5Period3(HARKobject):
         self.Rira           = Rira
         self.MaxIRA         = MaxIRA
         self.y4             = IncomeProfile[4]
+        self.output         = output
     
     def __call__(self,m,n):
         '''
@@ -1128,40 +1151,74 @@ class ConsIRA5Period3(HARKobject):
         -------
         c : float
             Consumption in period 3.
+        d : float
+            Deposit/withdrawal in period 3.
+        v : float
+            Value function in period 3.
         '''
+        beta_gam = self.DiscFac**(1/self.CRRA)
+        beta = self.DiscFac
+        R_gam = self.Rira**(1/self.CRRA)
+        R = self.Rira
+        beta_R_gam = beta_gam * R_gam
+        y4 = self.y4
+        dMax = self.MaxIRA
+        u = lambda c : utility(c,gam=self.CRRA)  # utility function
         
-        d_int = ( ((self.DiscFac*self.Rira)**(1/self.CRRA)*(m)
-                   - self.y4 - self.Rira*n)
-                  /((self.DiscFac*self.Rira)**(1/self.CRRA)+self.Rira) )
+        c = {} # consumption
+        d = {} # deposit/withdrawal
+        a = {} # liquid savings
+        v = {} # value function
         
-        # Liquidate illiquid account
-        if d_int < -n:
-            liq = 1
-            c_liq = m + n
-            d_liq = -n
-            v_liq = utility(c_liq) + self.DiscFac*utility(self.y4)
+        d['inter'] = (beta_R_gam*m - y4 - R*n)/(beta_R_gam + R)
+        
+        # Liquidate illiquid accountm, no liquid savings
+        if d['inter'] < -n:
+            c['liq'] = m + n
+            d['liq'] = -n
+            a['liq'] = 0.0
+            v['liq'] = u(c['liq']) + beta*u(y4)
             
-        # Interior solution, partial withdrawal or saving
-        if d_int >= -n and d_int < self.MaxIRA:
-            inter = 1
-            c_int = m - d_int
-            v_int = utility(c_int) + \
-                    self.DiscFac*utility(self.y4 + self.Rira*(n + d_int))
+        # Interior solution, partial illiquid withdrawal or saving,
+        # no liquid saving
+        if d['inter'] >= -n and d['inter'] < dMax:
+            c['inter'] = m - d['inter']
+            a['inter'] = 0.0
+            v['inter'] = u(c['inter']) + beta*u(y4 + R*(n + d['inter']))
         
         # Iliquid savings cap & no liquid savings
-        liq_cap = ( (self.DiscFac**(1/self.CRRA)*(m) - self.y4 - self.Rira*n)/
-                    (self.DiscFac**(1/self.CRRA) + self.Rira) )
+        a['cap_save'] = ((beta_gam*m - y4 - R*n - (beta_gam + R)*dMax)/
+                      (beta_gam + 1))
         
-        if d_int >= self.MaxIRA and self.MaxIRA > liq_cap:
-            cap = 1
-            c_cap = m - self.MaxIRA
-            v_cap = utility(c_cap) + \
-                    self.DiscFac*utility(self.y4 + self.Rira*(n + self.MaxIRA))
+        if d['inter'] >= dMax and a['cap_save'] < 0.0:
+            c['cap'] = m - dMax
+            d['cap'] = dMax
+            a['cap'] = 0.0
+            v['cap'] = u(c['cap']) + beta*u(y4 + R*(n + dMax))
         
         # Illiquid savings cap & liquid savings
-        if liq_cap > self.MaxIRA:
-            cap_save = 1
-            c_
+        
+        if a['cap_save'] >= 0.0:
+            c['cap_save'] = m - dMax - a['cap_save']
+            d['cap_save'] = dMax
+            v['cap_save'] = u(c['cap_save']) +\
+                            beta*u(y4 + a['cap_save'] + R*(n + dMax))
+          
+        # Find max utility
+        max_state = max(v, key=v.get)
+        
+        c_star = c[max_state]
+        d_star = d[max_state]
+        v_star = v[max_state]
+        
+        if self.output == 'all':
+            return c_star, d_star, v_star
+        elif self.output == 'cFunc':
+            return c_star
+        elif self.output == 'dFunc':
+            return d_star
+        elif self.output =='vFunc':
+            return v_star
         
 # ====================================
 # === Perfect foresight IRA model ===
@@ -1953,7 +2010,15 @@ class ConsIRASolver(ConsIndShockSolver):
         Solves a one period consumption saving problem with liquid and illiquid
         assets.
 
-        v
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        solution : ConsIRASolution
+            The solution to the one period problem.
+        '''
         aNrm,bNrm = self.prepareToCalcEndOfPrdvAndvP()
         EndOfPrdv,EndOfPrdvP = self.calcEndOfPrdvAndvP(self.mNrmNext,
                                                         self.nNrmNext,
