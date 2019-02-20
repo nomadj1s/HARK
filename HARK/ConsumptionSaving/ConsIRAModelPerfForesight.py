@@ -1067,26 +1067,31 @@ class ConsIRA5Period4(HARKobject):
         
         Returns
         -------
-        c : float
+        solution['cFunc'] : float
             Consumption in period 4.
-        d : float
+        solution['dFunc'] : float
             Withdrawal in period 4.
-        v : float
+        solution['vFunc'] : float
             Value function in period 4.
+        solution['vPmFunc'] : float
+            Marginal value function wrt m in period 4.
+        solution['vPnFunc'] : float
+            Marginal value function wrt n in period 4.
         '''
         
         c = m + n
         d = -n
         v = utility(c,gam=self.CRRA)
+        vPm = utilityP(c,gam=self.CRRA)
+        vPn = utilityP(c,gam=self.CRRA)
+        
+        solution = {'cFunc': c, 'dFunc': d, 'vfunc': v, 'vPmFunc': vPm,
+                    'vPnFunc': vPn}
         
         if self.output == 'all':
-            return c, d, v
-        elif self.output == 'cFunc':
-            return c
-        elif self.output == 'dFunc':
-            return d
-        elif self.output =='vFunc':
-            return v
+            return solution
+        else:
+            return solution[self.output]
 
 class ConsIRA5Period3(HARKobject):
     '''
@@ -1147,12 +1152,16 @@ class ConsIRA5Period3(HARKobject):
         
         Returns
         -------
-        c : float
+        solution['cFunc'] : float
             Consumption in period 3.
-        d : float
-            Deposit/withdrawal in period 3.
-        v : float
+        solution['dFunc'] : float
+            Withdrawal in period 3.
+        solution['vFunc'] : float
             Value function in period 3.
+        solution['vPmFunc'] : float
+            Marginal value function wrt m in period 3.
+        solution['vPnFunc'] : float
+            Marginal value function wrt n in period 3.
         '''
         beta_gam = self.DiscFac**(1/self.CRRA)
         beta = self.DiscFac
@@ -1162,11 +1171,14 @@ class ConsIRA5Period3(HARKobject):
         y4 = self.y4
         dMax = self.MaxIRA
         u = lambda c : utility(c,gam=self.CRRA)  # utility function
+        uP = lambda c: utilityP(c,gam=self.CRRA) # marginal utility function
         
         c = {} # consumption
         d = {} # deposit/withdrawal
         a = {} # liquid savings
         v = {} # value function
+        vPm = {} # marginal value wrt m
+        vPn = {} # marginal value wrt n
         
         d['inter'] = (beta_R_gam*m - y4 - R*n)/(beta_R_gam + R)
         
@@ -1176,6 +1188,8 @@ class ConsIRA5Period3(HARKobject):
             d['liq'] = -n
             a['liq'] = 0.0
             v['liq'] = u(c['liq']) + beta*u(y4)
+            vPm['liq'] = uP(c['liq'])
+            vPn['liq'] = uP(c['liq'])
             
         # Interior solution, partial illiquid withdrawal or saving,
         # no liquid saving
@@ -1183,6 +1197,8 @@ class ConsIRA5Period3(HARKobject):
             c['inter'] = m - d['inter']
             a['inter'] = 0.0
             v['inter'] = u(c['inter']) + beta*u(y4 + R*(n + d['inter']))
+            vPm['inter'] = uP(c['inter'])
+            vPn['inter'] = uP(c['inter'])
         
         # Iliquid savings cap & no liquid savings
         a['cap_save'] = ((beta_gam*m - y4 - R*n - (beta_gam + R)*dMax)/
@@ -1193,6 +1209,8 @@ class ConsIRA5Period3(HARKobject):
             d['cap'] = dMax
             a['cap'] = 0.0
             v['cap'] = u(c['cap']) + beta*u(y4 + R*(n + dMax))
+            vPm['cap'] = uP(c['cap'])
+            vPn['cap'] = R*beta*uP(y4 + R*(n + dMax))
         
         # Illiquid savings cap & liquid savings
         
@@ -1201,6 +1219,8 @@ class ConsIRA5Period3(HARKobject):
             d['cap_save'] = dMax
             v['cap_save'] = u(c['cap_save']) +\
                             beta*u(y4 + a['cap_save'] + R*(n + dMax))
+            vPm['cap_save'] = uP(c['cap_save'])
+            vPn['cap_save'] = R*beta*uP(y4 + a['cap_save'] + R*(n + dMax))
           
         # Find max utility
         max_state = max(v, key=v.get)
@@ -1208,15 +1228,16 @@ class ConsIRA5Period3(HARKobject):
         c_star = c[max_state]
         d_star = d[max_state]
         v_star = v[max_state]
+        vPm_star = vPm[max_state]
+        vPn_star = vPn[max_state]
+        
+        solution = {'cFunc': c_star, 'dFunc': d_star, 'vfunc': v_star, 
+                    'vPmFunc': vPm_star, 'vPnFunc': vPn_star}
         
         if self.output == 'all':
-            return c_star, d_star, v_star
-        elif self.output == 'cFunc':
-            return c_star
-        elif self.output == 'dFunc':
-            return d_star
-        elif self.output =='vFunc':
-            return v_star
+            return solution
+        else:
+            return solution[self.output]
         
 class ConsIRA5Period2(HARKobject):
     '''
