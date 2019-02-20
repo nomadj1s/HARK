@@ -1167,7 +1167,7 @@ class ConsIRA5Period3(HARKobject):
         beta = self.DiscFac
         R_gam = self.Rira**(1/self.CRRA)
         R = self.Rira
-        beta_R_gam = beta_gam * R_gam
+        R_beta_gam = R_gam * beta_gam
         y4 = self.y4
         dMax = self.MaxIRA
         u = lambda c : utility(c,gam=self.CRRA)  # utility function
@@ -1180,9 +1180,9 @@ class ConsIRA5Period3(HARKobject):
         vPm = {} # marginal value wrt m
         vPn = {} # marginal value wrt n
         
-        d['inter'] = (beta_R_gam*m - y4 - R*n)/(beta_R_gam + R)
+        d['inter'] = (R_beta_gam*m - y4 - R*n)/(R_beta_gam + R)
         
-        # Liquidate illiquid accountm, no liquid savings
+        # Liquidate illiquid account, no liquid savings
         if d['inter'] < -n:
             c['liq'] = m + n
             d['liq'] = -n
@@ -1245,10 +1245,10 @@ class ConsIRA5Period2(HARKobject):
     Period 4 is the last period (the first period is 0).
     '''
     distance_criteria = ['period','IncomeProfile','Disc','CRRA','Rsave',
-                         'Rira','MaxIRA']
+                         'Rira','PenIRA','MaxIRA']
     
-    def __init__(self,IncomeProfile,DiscFac,CRRA,Rsave,Rira,MaxIRA,
-                 output='all'):
+    def __init__(self,IncomeProfile,DiscFac,CRRA,Rsave,Rira,PenIRA,MaxIRA,
+                 ConsIRA5Period3,output='all'):
         '''
         Constructor for period 2 solution.
         
@@ -1266,8 +1266,14 @@ class ConsIRA5Period2(HARKobject):
         Rira:  float
             Interest factor on illiquid assets between this period and the 
             succeeding period.
+        PenIRA: float
+            Penalty for early withdrawals (d < 0) from the illiqui account, 
+            i.e. before t = T_ira.
         MaxIRA: float
             Maximum allowable IRA deposit, d <= MaxIRA
+        ConsIRA5Period3 : function
+            Returns optimal c,d,a and value function and marginal value
+            function from period3.
         output : string
             Whether consumption, deposit, or value function is output.
         
@@ -1281,9 +1287,11 @@ class ConsIRA5Period2(HARKobject):
         self.CRRA           = CRRA
         self.Rsave          = Rsave
         self.Rira           = Rira
+        self.PenIRA         = PenIRA
         self.MaxIRA         = MaxIRA
         self.y3             = IncomeProfile[3]
         self.y4             = IncomeProfile[4]
+        self.ConsIRA5Period3 = deepcopy(ConsIRA5Period3)
         self.output         = output
         
     def __call__(self,m,n):
@@ -1299,39 +1307,52 @@ class ConsIRA5Period2(HARKobject):
         
         Returns
         -------
-        c : float
-            Consumption in period 2.
-        d : float
-            Deposit/withdrawal in period 2.
-        v : float
-            Value function in period 2.
+        solution['cFunc'] : float
+            Consumption in period 3.
+        solution['dFunc'] : float
+            Withdrawal in period 3.
+        solution['vFunc'] : float
+            Value function in period 3.
+        solution['vPmFunc'] : float
+            Marginal value function wrt m in period 3.
+        solution['vPnFunc'] : float
+            Marginal value function wrt n in period 3.
         '''
         beta_gam = self.DiscFac**(1/self.CRRA)
         beta = self.DiscFac
         R_gam = self.Rira**(1/self.CRRA)
         R = self.Rira
-        beta_R_gam = beta_gam * R_gam
+        pen_gam = (1-self.PenIRA)**(1/self.CRRA)
+        pen = (1-self.PenIRA)
+        R_beta_pen_gam = R_gam * beta_gam / pen_gam
+        R_beta_pen = R*beta/pen
+        y3 = self.y3
         y4 = self.y4
         dMax = self.MaxIRA
         u = lambda c : utility(c,gam=self.CRRA)  # utility function
+        uP = lambda c: utilityP(c,gam=self.CRRA) # marginal utility function
         
         c = {} # consumption
         d = {} # deposit/withdrawal
         a = {} # liquid savings
         v = {} # value function
+        vPm = {} # marginal value wrt m
+        vPn = {} # marginal value wrt n
         
-        d['inter'] = (beta_R_gam*m - y4 - R*n)/(beta_R_gam + R)
-        
-        # Liquidate illiquid accountm, no liquid savings
-        if d['inter'] < -n:
-            c['liq'] = m + n
+        # Liquidate illiquid account, no liquid savings
+        if pen*uP(m + pen*n) > R*beta*self.ConsIRA5Period3(y3,0)['vPnFunc']:
+            c['liq'] = m + pen*n
             d['liq'] = -n
             a['liq'] = 0.0
-            v['liq'] = u(c['liq']) + beta*u(y4)
+            v['liq'] = u(c['liq']) + beta*self.ConsIRA5Period3(y3,0)['vFunc']
+            vPm['liq'] = uP(c['liq'])
+            vPn['liq'] = pen*uP(c['liq'])
             
-        # Interior solution, partial illiquid withdrawal or saving,
-        # no liquid saving
-        if d['inter'] >= -n and d['inter'] < dMax:
+        # Interior solution, partial illiquid withdrawal, no liquid savings
+        # Liquidate in period 3
+        d['with_liq'] = (R_beta_pen_gam*m-y3-R*n)/(R_beta_pen*pen + R)
+        
+        if d['with_liq'] >= -n and d['with_liq'] < 0:
             c['inter'] = m - d['inter']
             a['inter'] = 0.0
             v['inter'] = u(c['inter']) + beta*u(y4 + R*(n + d['inter']))
