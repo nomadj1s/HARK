@@ -1455,7 +1455,7 @@ class ConsIRA5Period2(HARKobject):
         # interior solution for liquid savings next period
         a3['with_cap_save'] = ((Ra_beta_gam*y3 - y4 
                                 - R**2*(n + d['with_cap_save']) 
-                                - (Ra_beta_gam + R)*dMax)/(Ra_beta_gam + 1))
+                                - (Ra_beta_gam + R)*dMax)/(Ra_beta_gam + Ra))
         
         # Neither bound binds for withdrawals this period
         # Lower bound on liquid savings doesn't bind next period
@@ -1557,6 +1557,12 @@ class ConsIRA5Period2(HARKobject):
                                               dMax))
             vPm['save_cap'] = uP(c['save_cap'])
             vPn['save_cap'] = uP(c['save_cap'])
+            
+        # Interior solution, partial illiquid deposit, no liquid savings
+        # Illiquid savings cap & liquid savings in period 3
+        
+        # interior solution for deposits this period
+        d['save_cap_save'] = 
         
         # Iliquid savings cap & no liquid savings
         a['cap_save'] = ((Ra_beta_gam*m - y4 - R*n - (Ra_beta_gam + R)*dMax)/
