@@ -1071,6 +1071,8 @@ class ConsIRA5Period4(HARKobject):
             Consumption in period 4.
         solution['dFunc'] : float
             Withdrawal in period 4.
+        solution['aFunc'] : float
+            Liquid saving in period 4
         solution['vFunc'] : float
             Value function in period 4.
         solution['vPmFunc'] : float
@@ -1081,12 +1083,13 @@ class ConsIRA5Period4(HARKobject):
         
         c = m + n
         d = -n
+        a = 0.0
         v = utility(c,gam=self.CRRA)
         vPm = utilityP(c,gam=self.CRRA)
         vPn = utilityP(c,gam=self.CRRA)
         
-        solution = {'cFunc': c, 'dFunc': d, 'vfunc': v, 'vPmFunc': vPm,
-                    'vPnFunc': vPn}
+        solution = {'cFunc': c, 'dFunc': d, 'aFunc': a, 'vfunc': v, 
+                    'vPmFunc': vPm, 'vPnFunc': vPn}
         
         if self.output == 'all':
             return solution
@@ -1183,10 +1186,11 @@ class ConsIRA5Period3(HARKobject):
         vPm = {} # marginal value wrt m
         vPn = {} # marginal value wrt n
         
+        # interior solution for saving
         d['inter'] = (R_beta_gam*m - y4 - R*n)/(R_beta_gam + R)
         
         # Liquidate illiquid account, no liquid savings
-        if d['inter'] < -n:
+        if d['inter'] < -n: # lower bound on withdrawal is binding
             c['liq'] = m + n
             d['liq'] = -n
             a['liq'] = 0.0
@@ -1196,7 +1200,7 @@ class ConsIRA5Period3(HARKobject):
             
         # Interior solution, partial illiquid withdrawal or saving,
         # no liquid saving
-        if d['inter'] >= -n and d['inter'] < dMax:
+        if d['inter'] >= -n and d['inter'] < dMax: # neither bound binds
             c['inter'] = m - d['inter']
             a['inter'] = 0.0
             v['inter'] = u(c['inter']) + beta*u(y4 + R*(n + d['inter']))
@@ -1204,9 +1208,12 @@ class ConsIRA5Period3(HARKobject):
             vPn['inter'] = uP(c['inter'])
         
         # Iliquid savings cap & no liquid savings
+        
+        # interior solution for liquid savings
         a['cap_save'] = ((Ra_beta_gam*m - y4 - R*n - (Ra_beta_gam + R)*dMax)/
                          (Ra_beta_gam + 1))
         
+        # upper bound on deposits and lower bound on liquid savings binds
         if d['inter'] >= dMax and a['cap_save'] < 0.0:
             c['cap'] = m - dMax
             d['cap'] = dMax
@@ -1217,7 +1224,7 @@ class ConsIRA5Period3(HARKobject):
         
         # Illiquid savings cap & liquid savings
         
-        if a['cap_save'] >= 0.0:
+        if a['cap_save'] >= 0.0: # lower bound in liquid savings doesn't bind
             c['cap_save'] = m - dMax - a['cap_save']
             d['cap_save'] = dMax
             v['cap_save'] = u(c['cap_save']) +\
@@ -1225,7 +1232,7 @@ class ConsIRA5Period3(HARKobject):
             vPm['cap_save'] = uP(c['cap_save'])
             vPn['cap_save'] = R*beta*uP(y4 + Ra*a['cap_save'] + R*(n + dMax))
           
-        # Find max utility
+        # Find max utility among valid solutions
         max_state = max(v, key=v.get)
         
         c_star = c[max_state]
@@ -1349,6 +1356,8 @@ class ConsIRA5Period2(HARKobject):
         a3 = {} # liquid saving in period 3
         
         # Liquidate illiquid account, no liquid savings
+        
+        # using solution, lower bound on withdrawals binding
         if pen*uP(m + pen*n) > R*beta*self.ConsIRA5Period3(y3,0)['vPnFunc']:
             c['liq'] = m + pen*n
             d['liq'] = -n
@@ -1359,9 +1368,18 @@ class ConsIRA5Period2(HARKobject):
             
         # Interior solution, partial illiquid withdrawal, no liquid savings
         # Liquidate in period 3
+        
+        # interior solution for withdrawals in current period
         d['with_liq'] = (R_beta_pen_gam*m-y3-R*n)/(R_beta_pen_gam*pen + R)
         
-        if d['with_liq'] >= -n and d['with_liq'] < 0:
+        # interior solution for withdrawal in period 3
+        d3['with_liq'] = (R_beta_gam*y3 - y4 
+                          - R**2*(n + d['with_liq']))/(R_beta_gam + R)
+        
+        # Neither lower bound or upper bound on withdrawals binds
+        # Lower bound on withdrawals next period binds
+        if (d['with_liq'] >= -n and d['with_liq'] < 0
+            and d3['with_liq'] < -R*(n + d['with_liq'])):
             c['with_liq'] = m - pen*d['with_liq']
             a['with_liq'] = 0.0
             v['with_liq'] = u(c['with_liq']) +\
@@ -1371,13 +1389,19 @@ class ConsIRA5Period2(HARKobject):
             vPn['with_liq'] = pen*uP(c['with_liq'])
             
         # Interior solution, partial illiquid withdrawal, no liquid savings
-        # Interior solution in period 3 
-        d['with_inter'] = (R_beta_pen_gam*m - (R*y3 + y4)/(R_beta_gam + R)
-                           - R**2*n)/(R_beta_pen_gam*pen + R**2)
+        # Interior solution in period 3
         
+        # interior solution for withdrawals in current period
+        d['with_inter'] = (R_beta_pen_gam*m - (R*y3 + y4 
+                           + R**2*n)/(R_beta_gam + R))\
+                           /(R_beta_pen_gam 
+                             + R**2/(R_beta_gam + R))
+        
+        # interior solution for deposits/withdrawals next period
         d3['with_inter'] = (R_beta_gam*y3 - y4 
                             - R**2*(n + d['with_inter']))/(R_beta_gam + R)
         
+        # Neither set of bounds bind in current or next period
         if (d['with_inter'] >= -n and d['with_inter'] < 0
             and d3['with_inter'] >= -R*(n + d['with_inter'])
             and d3['with_inter'] < dMax):
@@ -1392,15 +1416,22 @@ class ConsIRA5Period2(HARKobject):
             
         # Interior solution, partial illiquid withdrawal, no liquid savings
         # Illiquid savings cap & no liquid savings in period 3
-        d['with_cap'] = (R_beta_gam**2*pen_gam*m - y4 - R**2*n - R*dMax)\
-                        /(R_beta_gam**2*pen_gam*pen + R**2)
         
+        # interior solution for withdrawals in the current period
+        d['with_cap'] = (R_beta_gam**2/pen_gam*m - y4 - R**2*n - R*dMax)\
+                        /(R_beta_gam**2/pen_gam*pen + R**2)
+        
+        # interior solution for deposits in the next period
         d3['with_cap'] = (R_beta_gam*y3 - y4 
                           - R**2*(n + d['with_cap']))/(R_beta_gam + R)
         
+        # interior solution for liquid savings in the next period
         a3['with_cap'] = ((Ra_beta_gam*y3 - y4 - R**2*(n + d['with_cap']) 
                                 - (Ra_beta_gam + R)*dMax)/(Ra_beta_gam + 1))
         
+        # Neither bound binds for withdrawals this period
+        # Upper bound binds for deposits next period
+        # Lower bound binds for liquid savings next period
         if (d['with_cap'] >= -n and d['with_cap'] < 0
             and d3['with_cap'] >= dMax
             and a3['with_cap'] < 0.0):
@@ -1408,21 +1439,26 @@ class ConsIRA5Period2(HARKobject):
             a['with_cap'] = 0.0
             v['with_cap'] = u(c['with_cap']) +\
                             beta*u(y3 - dMax) +\
-                            beta**2*u(y4 + R*(R*(n + d['with_inter']) + 
-                                                dMax))
+                            beta**2*u(y4 + R*(R*(n + d['with_cap']) + 
+                                              dMax))
             vPm['with_cap'] = uP(c['with_cap'])
             vPn['with_cap'] = pen*uP(c['with_cap'])
             
         # Interior solution, partial illiquid withdrawal, no liquid savings
         # Illiquid savings cap & liquid savings in period 3
-        d['with_cap_save'] = (R_beta_gam**2*pen_gam*m - y4
-                              - Ra*a3['with_cap_save'] - R**2*n - R*dMax)\
-                              /(R_beta_gam**2*pen_gam*pen + R**2)
         
+        # interior solution for withdrawals this period
+        d['with_cap_save'] = (R_beta_gam**2/pen_gam*m - y4
+                              - Ra*a3['with_cap_save'] - R**2*n - R*dMax)\
+                              /(R_beta_gam**2/pen_gam*pen + R**2)
+        
+        # interior solution for liquid savings next period
         a3['with_cap_save'] = ((Ra_beta_gam*y3 - y4 
                                 - R**2*(n + d['with_cap_save']) 
                                 - (Ra_beta_gam + R)*dMax)/(Ra_beta_gam + 1))
         
+        # Neither bound binds for withdrawals this period
+        # Lower bound on liquid savings doesn't bind next period
         if (d['with_cap_save'] >= -n and d['with_cap_save'] < 0
             and a3['with_cap_save'] >= 0.0):
             c['with_cap_save'] = m - pen*d['with_cap_save']
@@ -1434,7 +1470,7 @@ class ConsIRA5Period2(HARKobject):
             vPm['with_cap_save'] = uP(c['with_cap_save'])
             vPn['with_cap_save'] = pen*uP(c['with_cap_save'])
         
-        # Corner solution on illiquid withdrawal or saving, no liquid saving
+        # Corner solution w/ no illiquid withdrawal or saving, no liquid saving
         if (pen*uP(m) < R*beta*self.ConsIRA5Period3(y3,n)['vPnFunc']
             and uP(m) > R*beta*self.ConsIRA5Period3(y3,n)['vPnFunc']):
             c['kink'] = m
@@ -1443,6 +1479,84 @@ class ConsIRA5Period2(HARKobject):
             v['kink'] = u(c['kink']) + beta*self.ConsIRA5Period3(y3,n)['vFunc']
             vPm['kink'] = uP(c['kink'])
             vPn['kink'] = R*beta*self.ConsIRA5Period3(y3,n)['vPnFunc']
+        
+        # Interior solution, partial illiquid saving, no liquid savings
+        # Liquidate in period 3
+        
+        # interior solution for deposits in current period
+        d['save_liq'] = (R_beta_gam*m-y3-R*n)/(R_beta_gam + R)
+        
+        # interior solution for withdrawals next period
+        d3['save_liq'] = (R_beta_gam*y3 - y4 
+                          - R**2*(n + d['save_liq']))/(R_beta_gam + R)
+        
+        # Neither bound binds for deposits in current period
+        # Lower bound on withdrawals binds next period
+        if (d['save_liq'] > 0 and d['save_liq'] < dMax
+            and d3['save_liq'] < -R*(n + d['save_liq'])):
+            c['save_liq'] = m - d['save_liq']
+            a['save_liq'] = 0.0
+            v['save_liq'] = u(c['save_liq']) +\
+                            beta*u(y3 + R*(n + d['save_liq'])) +\
+                            beta**2*u(y4)
+            vPm['save_liq'] = uP(c['save_liq'])
+            vPn['save_liq'] = uP(c['save_liq'])
+        
+        # Interior solution, partial illiquid saving, no liquid savings
+        # Interior solution in period 3
+        
+        # interior solution for deposits in current period
+        d['save_inter'] = (R_beta_gam*m - (R*y3 + y4 
+                           + R**2*n)/(R_beta_gam + R))\
+                           /(R_beta_gam 
+                             + R**2/(R_beta_gam + R))
+        
+        # interior solution for deposits/withdrawals next period
+        d3['save_inter'] = (R_beta_gam*y3 - y4 
+                            - R**2*(n + d['save_inter']))/(R_beta_gam + R)
+        
+        # Neither set of bounds bind in current or next period
+        if (d['save_inter'] > 0 and d['save_inter'] < dMax
+            and d3['save_inter'] >= -R*(n + d['save_inter'])
+            and d3['save_inter'] < dMax):
+            c['save_inter'] = m - d['save_inter']
+            a['save_inter'] = 0.0
+            v['save_inter'] = u(c['save_inter']) +\
+                              beta*u(y3 - d3['save_inter']) +\
+                              beta**2*u(y4 + R*(R*(n + d['save_inter']) + 
+                                                d3['save_inter']))
+            vPm['save_inter'] = uP(c['save_inter'])
+            vPn['save_inter'] = uP(c['save_inter'])
+            
+        # Interior solution, partial illiquid deposit, no liquid savings
+        # Illiquid savings cap & no liquid savings in period 3
+        
+        # interior solution for deposits in the current period
+        d['save_cap'] = (R_beta_gam**2*m - y4 - R**2*n - R*dMax)\
+                        /(R_beta_gam**2 + R**2)
+        
+        # interior solution for deposits in the next period
+        d3['save_cap'] = (R_beta_gam*y3 - y4 
+                          - R**2*(n + d['save_cap']))/(R_beta_gam + R)
+        
+        # interior solution for liquid savings in the next period
+        a3['save_cap'] = ((Ra_beta_gam*y3 - y4 - R**2*(n + d['save_cap']) 
+                                - (Ra_beta_gam + R)*dMax)/(Ra_beta_gam + 1))
+        
+        # Neither bound binds for deposits this period
+        # Upper bound binds for deposits next period
+        # Lower bound binds for liquid savings next period
+        if (d['save_cap'] > 0 and d['save_cap'] < dMax
+            and d3['save_cap'] >= dMax
+            and a3['save_cap'] < 0.0):
+            c['save_cap'] = m - d['save_cap']
+            a['save_cap'] = 0.0
+            v['save_cap'] = u(c['save_cap']) +\
+                            beta*u(y3 - dMax) +\
+                            beta**2*u(y4 + R*(R*(n + d['save_cap']) + 
+                                              dMax))
+            vPm['save_cap'] = uP(c['save_cap'])
+            vPn['save_cap'] = uP(c['save_cap'])
         
         # Iliquid savings cap & no liquid savings
         a['cap_save'] = ((Ra_beta_gam*m - y4 - R*n - (Ra_beta_gam + R)*dMax)/
