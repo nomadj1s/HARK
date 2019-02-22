@@ -1037,9 +1037,9 @@ class ConsIRA5Period4(HARKobject):
     Closed form solution for 5-period IRA consumer with perfect foresight.
     Period 4 is the last period (the first period is 0).
     '''
-    distance_criteria = ['period']
+    distance_criteria = ['CRRA']
     
-    def __init__(self,output='all'):
+    def __init__(self,CRRA,output='all'):
         '''
         Constructor for period 4 solution.
         
@@ -1052,7 +1052,7 @@ class ConsIRA5Period4(HARKobject):
         -------
         None
         '''
-        self.period = 4
+        self.CRRA = CRRA
         self.output = output
         
     def __call__(self,m,n):
@@ -1089,7 +1089,7 @@ class ConsIRA5Period4(HARKobject):
         vPm = utilityP(c,gam=self.CRRA)
         vPn = utilityP(c,gam=self.CRRA)
         
-        solution = {'cFunc': c, 'dFunc': d, 'aFunc': a, 'vfunc': v, 
+        solution = {'cFunc': c, 'dFunc': d, 'aFunc': a, 'vFunc': v, 
                     'vPmFunc': vPm, 'vPnFunc': vPn, 'max_state': 'liq'}
         
         if self.output == 'all':
@@ -1102,18 +1102,18 @@ class ConsIRA5Period3(HARKobject):
     Closed form solution for 5-period IRA consumer with perfect foresight.
     Period 4 is the last period (the first period is 0).
     '''
-    distance_criteria = ['period','IncomeProfile','Disc','CRRA','Rsave',
+    distance_criteria = ['period','NextIncome','Disc','CRRA','Rsave',
                          'Rira','MaxIRA','ConsIRA5Period4']
     
-    def __init__(self,IncomeProfile,DiscFac,CRRA,Rsave,Rira,MaxIRA,
+    def __init__(self,NextIncome,DiscFac,CRRA,Rsave,Rira,MaxIRA,
                  ConsIRA5Period4,output='all'):
         '''
         Constructor for period 3 solution.
         
         Parameters
         ----------
-        IncomeProfile : np.array
-            Income each period from period 0 to 4.
+        NextIncome : float
+            Income in the next period
         DiscFac : float
             Intertemporal discount factor for future utility.
         CRRA : float
@@ -1137,13 +1137,13 @@ class ConsIRA5Period3(HARKobject):
         None
         '''
         self.period         = 3
-        self.IncomeProfile  = IncomeProfile
+        self.NextIncome     = NextIncome
         self.DiscFac        = DiscFac
         self.CRRA           = CRRA
         self.Rsave          = Rsave
         self.Rira           = Rira
         self.MaxIRA         = MaxIRA
-        self.y4             = IncomeProfile[4]
+        self.y4             = NextIncome
         self.ConsIRA5Period4 = deepcopy(ConsIRA5Period4)
         self.output         = output
     
@@ -1155,16 +1155,16 @@ class ConsIRA5Period3(HARKobject):
         
         Parameters
         ----------
-        d : float
+        d : float or np.array
             Value of d, used to calculate value function next period.
-        m : float
+        m : float or np.array
             Cash on hand, including period 3 income and liquid assets.
-        n : float
+        n : float or np.array
             Illiquid account balance.
             
         Returns
         -------
-        dstar : float
+        dstar : float or np.array
             Optimal d at an interior solution.
         '''
         r = self.Rira
@@ -1185,16 +1185,16 @@ class ConsIRA5Period3(HARKobject):
         
         Parameters
         ----------
-        a : float
+        a : float or np.array
             Value of a, used to calculate value function next period.
-        m : float
+        m : float or np.array
             Cash on hand, including period 3 income and liquid assets.
-        n : float
+        n : float or np.array
             Illiquid account balance.
             
         Returns
         -------
-        astar : float
+        astar : float or np.array
             Optimal a at an interior solution.
         '''
         r = self.Rira
@@ -1251,7 +1251,7 @@ class ConsIRA5Period3(HARKobject):
         
         # interior solution for withdrawal/deposit, using a fixed point method
         
-        d['inter'] = fp(self.dFOC,args=(m,n))
+        d['inter'] = fp(self.dFOC,0.0,args=(m,n))
         
         # Liquidate illiquid account, no liquid savings
         if d['inter'] < -n: # lower bound on withdrawal is binding
@@ -1275,7 +1275,7 @@ class ConsIRA5Period3(HARKobject):
         # Iliquid savings cap & no liquid savings
         
         # interior solution for liquid savings, using a fixed point method
-        a['cap_save'] = fp(self.aFOC,args=(m,n))
+        a['cap_save'] = fp(self.aFOC,0.0,args=(m,n))
         
         # upper bound on deposits and lower bound on liquid savings binds
         if d['inter'] > dMax and a['cap_save'] < 0.0:
@@ -1326,7 +1326,7 @@ class ConsIRA5Period2(HARKobject):
     distance_criteria = ['period','IncomeProfile','Disc','CRRA','Rsave',
                          'Rira','PenIRA','MaxIRA','ConsIRA5Period3']
     
-    def __init__(self,IncomeProfile,DiscFac,CRRA,Rsave,Rira,PenIRA,MaxIRA,
+    def __init__(self,NextIncome,DiscFac,CRRA,Rsave,Rira,PenIRA,MaxIRA,
                  ConsIRA5Period3,output='all'):
         '''
         Constructor for period 2 solution.
@@ -1361,15 +1361,14 @@ class ConsIRA5Period2(HARKobject):
         None
         '''
         self.period         = 2
-        self.IncomeProfile  = IncomeProfile
+        self.NextIncome     = NextIncome
         self.DiscFac        = DiscFac
         self.CRRA           = CRRA
         self.Rsave          = Rsave
         self.Rira           = Rira
         self.PenIRA         = PenIRA
         self.MaxIRA         = MaxIRA
-        self.y3             = IncomeProfile[3]
-        self.y4             = IncomeProfile[4]
+        self.y3             = NextIncome
         self.ConsIRA5Period3 = deepcopy(ConsIRA5Period3)
         self.output         = output
         
@@ -1382,16 +1381,16 @@ class ConsIRA5Period2(HARKobject):
         
         Parameters
         ----------
-        d : float
+        d : float or np.array
             Value of d, used to calculate value function next period.
-        m : float
+        m : float or np.array
             Cash on hand, including period 3 income and liquid assets.
-        n : float
+        n : float or np.array
             Illiquid account balance.
             
         Returns
         -------
-        dstar : float
+        dstar : float or np.array
             Optimal d at an interior solution.
         '''
         r = self.Rira
@@ -1414,16 +1413,16 @@ class ConsIRA5Period2(HARKobject):
         
         Parameters
         ----------
-        d : float
+        d : float or np.array
             Value of d, used to calculate value function next period.
-        m : float
+        m : float or np.array
             Cash on hand, including period 3 income and liquid assets.
         n : float
             Illiquid account balance.
             
         Returns
         -------
-        dstar : float
+        dstar : float or np.array
             Optimal d at an interior solution.
         '''
         r = self.Rira
@@ -1444,11 +1443,11 @@ class ConsIRA5Period2(HARKobject):
         
         Parameters
         ----------
-        a : float
+        a : float or np.array
             Value of a, used to calculate value function next period.
-        m : float
+        m : float or np.array
             Cash on hand, including period 3 income and liquid assets.
-        n : float
+        n : float or np.array
             Illiquid account balance.
             
         Returns
@@ -1460,9 +1459,9 @@ class ConsIRA5Period2(HARKobject):
         ra = self.Rsave
         b = self.DiscFac
         g = self.CRRA
-        y4 = self.y4
+        y3 = self.y3
         dMax = self.MaxIRA
-        vPm = self.ConsIRA5Period4(y4 + ra*a,r*(n+dMax))['vPmFunc']
+        vPm = self.ConsIRA5Period3(y3 + ra*a,r*(n+dMax))['vPmFunc']
         
         astar = m - dMax - (ra*b*vPm)**(-1.0/g)
         
@@ -1511,7 +1510,7 @@ class ConsIRA5Period2(HARKobject):
         
         # interior solution for withdrawal, using a fixed point method
         
-        d['with'] = fp(self.wFOC,args=(m,n))
+        d['with'] = fp(self.wFOC,0.0,args=(m,n))
         
         # Liquidate illiquid account, no liquid savings
         
@@ -1536,14 +1535,14 @@ class ConsIRA5Period2(HARKobject):
         # Corner solution w/ no illiquid withdrawal or saving, no liquid saving
         
         # interior solution for illiquid deposit, using a fixed point method
-        d['dep'] = fp(self.dFOC,args=(m,n))
+        d['dep'] = fp(self.dFOC,0.0,args=(m,n))
         
         # upperbound on withdrawals and lower bound on deposits bind
         if d['with'] > 0.0 and d['dep'] < 0.0:
             c['kink'] = m
             d['kink'] = 0.0
             a['kink'] = 0.0
-            v['kink'] = u(c['kink']) + b.self.ConsIRA5Period3(y3,r*n)['vFunc']
+            v['kink'] = u(c['kink']) + b*self.ConsIRA5Period3(y3,r*n)['vFunc']
             vPm['kink'] = uP(c['kink'])
             vPn['kink'] = r*b*self.ConsIRA5Period3(y3,r*n)['vPnFunc']
         
@@ -1559,7 +1558,7 @@ class ConsIRA5Period2(HARKobject):
         # Illiquid savings cap, no liquid savings
         
         # interior solution for liquid svaings, using a fixed point method
-        a['cap_save'] = fp(self.aFOC,args=(m,n))
+        a['cap_save'] = fp(self.aFOC,0.0,args=(m,n))
         
         # upper bound on deposits and lower bound on liquid savings binds
         if d['dep'] > dMax and a['cap_save'] < 0.0:
