@@ -1275,29 +1275,33 @@ class ConsIRA5Period3(HARKobject):
         # Iliquid savings cap & no liquid savings
         
         # interior solution for liquid savings, using a fixed point method
-        a['cap_save'] = fp(self.aFOC,0.0,args=(m,n))
+        if dMax < m: # saving can't exceed m
+            a['cap_save'] = fp(self.aFOC,0.0,args=(m,n))
         
-        # upper bound on deposits and lower bound on liquid savings binds
-        if d['inter'] > dMax and a['cap_save'] < 0.0:
-            c['cap'] = m - dMax
-            d['cap'] = dMax
-            a['cap'] = 0.0
-            v['cap'] = u(c['cap']) +\
-                       b*self.ConsIRA5Period4(y4,r*(n+dMax))['vFunc']
-            vPm['cap'] = uP(c['cap'])
-            vPn['cap'] = r*b*self.ConsIRA5Period4(y4,r*(n+dMax))['vPnFunc']
+            # upper bound on deposits and lower bound on liquid savings binds
         
-        # Illiquid savings cap & liquid savings
+            if d['inter'] > dMax and a['cap_save'] < 0.0:
+                c['cap'] = m - dMax
+                d['cap'] = dMax
+                a['cap'] = 0.0
+                v['cap'] = u(c['cap']) +\
+                           b*self.ConsIRA5Period4(y4,r*(n+dMax))['vFunc']
+                vPm['cap'] = uP(c['cap'])
+                vPn['cap'] = r*b*self.ConsIRA5Period4(y4,r*(n+dMax))['vPnFunc']
         
-        if a['cap_save'] >= 0.0: # lower bound on liquid savings doesn't bind
-            c['cap_save'] = m - dMax - a['cap_save']
-            d['cap_save'] = dMax
-            v['cap_save'] = u(c['cap_save']) +\
-                            b*self.ConsIRA5Period4(y4 + ra*a['cap_save'],
-                                                   r*(n+dMax))['vFunc']
-            vPm['cap_save'] = uP(c['cap_save'])
-            vPn['cap_save'] = r*b*self.ConsIRA5Period4(y4 + ra*a['cap_save']
-                                                       ,r*(n+dMax))['vPnFunc']
+            # Illiquid savings cap & liquid savings
+        
+            if a['cap_save'] >= 0.0: # lower bound on liquid savings doesn't bind
+                c['cap_save'] = m - dMax - a['cap_save']
+                d['cap_save'] = dMax
+                v['cap_save'] = u(c['cap_save']) +\
+                                b*self.ConsIRA5Period4(y4 + ra*a['cap_save'],
+                                                       r*(n+dMax))['vFunc']
+                vPm['cap_save'] = uP(c['cap_save'])
+                vPn['cap_save'] = r*b*self.ConsIRA5Period4(y4 
+                                                           + ra*a['cap_save'],
+                                                           r*(n+dMax)
+                                                           )['vPnFunc']
           
         # Find max utility among valid solutions
         max_state = max(v, key=v.get)
@@ -1452,7 +1456,7 @@ class ConsIRA5Period2(HARKobject):
             
         Returns
         -------
-        astar : float
+        astar : float or np.array
             Optimal a at an interior solution.
         '''
         r = self.Rira
@@ -1558,28 +1562,31 @@ class ConsIRA5Period2(HARKobject):
         # Illiquid savings cap, no liquid savings
         
         # interior solution for liquid svaings, using a fixed point method
-        a['cap_save'] = fp(self.aFOC,0.0,args=(m,n))
+        if dMax < m:
+            a['cap_save'] = fp(self.aFOC,0.0,args=(m,n))
         
-        # upper bound on deposits and lower bound on liquid savings binds
-        if d['dep'] > dMax and a['cap_save'] < 0.0:
-            c['cap'] = m - dMax
-            d['cap'] = dMax
-            a['cap'] = 0.0
-            v['cap'] = u(c['cap']) +\
-                       b*self.ConsIRA5Period3(y3,r*(n+dMax))['vFunc']
-            vPm['cap'] = uP(c['cap'])
-            vPn['cap'] = r*b*self.ConsIRA5Period3(y3,r*(n+dMax))['vPnFunc']
+            # upper bound on deposits and lower bound on liquid savings binds
+            if d['dep'] > dMax and a['cap_save'] < 0.0:
+                c['cap'] = m - dMax
+                d['cap'] = dMax
+                a['cap'] = 0.0
+                v['cap'] = u(c['cap']) +\
+                           b*self.ConsIRA5Period3(y3,r*(n+dMax))['vFunc']
+                vPm['cap'] = uP(c['cap'])
+                vPn['cap'] = r*b*self.ConsIRA5Period3(y3,r*(n+dMax))['vPnFunc']
             
-        # Illiquid savings cap and liquid savings
-        if a['cap_save'] >= 0.0: # lower bound on liquid savings doesn't bind
-            c['cap_save'] = m - dMax - a['cap_save']
-            d['cap_save'] = dMax
-            v['cap_save'] = u(c['cap_save']) +\
-                            b*self.ConsIRA5Period3(y3 + ra*a['cap_save'],
-                                                   r*(n+dMax))['vFunc']
-            vPm['cap_save'] = uP(c['cap_save'])
-            vPn['cap_save'] = r*b*self.ConsIRA5Period3(y3 + ra*a['cap_save']
-                                                       ,r*(n+dMax))['vPnFunc']
+            # Illiquid savings cap and liquid savings
+            if a['cap_save'] >= 0.0: # lower bound on liq savings doesn't bind
+                c['cap_save'] = m - dMax - a['cap_save']
+                d['cap_save'] = dMax
+                v['cap_save'] = u(c['cap_save']) +\
+                                b*self.ConsIRA5Period3(y3 + ra*a['cap_save'],
+                                                       r*(n+dMax))['vFunc']
+                vPm['cap_save'] = uP(c['cap_save'])
+                vPn['cap_save'] = r*b*self.ConsIRA5Period3(y3 
+                                                           + ra*a['cap_save'],
+                                                           r*(n+dMax)
+                                                           )['vPnFunc']
         
           
         # Find max utility among valid solutions
