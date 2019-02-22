@@ -20,7 +20,6 @@ from builtins import range
 from copy import copy, deepcopy
 import numpy as np
 from scipy.optimize import basinhopping
-from scipy.optimize import fixed_point as fp
 from time import clock, time
 import multiprocessing as mp
 from pathos.multiprocessing import ProcessPool
@@ -1106,7 +1105,7 @@ class ConsIRA5Period3(HARKobject):
                          'Rira','MaxIRA']
     
     def __init__(self,IncomeProfile,DiscFac,CRRA,Rsave,Rira,MaxIRA,
-                 ConsIRA5Period4,output='all'):
+                 output='all'):
         '''
         Constructor for period 3 solution.
         
@@ -1126,9 +1125,6 @@ class ConsIRA5Period3(HARKobject):
             succeeding period.
         MaxIRA: float
             Maximum allowable IRA deposit, d <= MaxIRA
-        ConsIRA5Period4 : function
-            Returns optimal c,d,a and value function and marginal value
-            function from period4.
         output : string
             Whether consumption, deposit, or value function is output.
         
@@ -1144,66 +1140,7 @@ class ConsIRA5Period3(HARKobject):
         self.Rira           = Rira
         self.MaxIRA         = MaxIRA
         self.y4             = IncomeProfile[4]
-        self.ConsIRA5Period4 = deepcopy(ConsIRA5Period4)
         self.output         = output
-    
-    def dFOC(self,d,m,n):
-        '''
-        Evaluate expression for d, derived from the FOC for d in period 3 at
-        an interior solution. Not a closed form solution, since it also depends
-        on d and the value function of the next period.
-        
-        Parameters
-        ----------
-        d : float
-            Value of d, used to calculate value function next period.
-        m : float
-            Cash on hand, including period 3 income and liquid assets.
-        n : float
-            Illiquid account balance.
-            
-        Returns
-        -------
-        dstar : float
-            Optimal d at an interior solution.
-        '''
-        r = self.Rira
-        b = self.DiscFac
-        g = self.CRRA
-        y4 = self.y4
-        vPn = self.ConsIRA5Period4(y4,r*(n + d))['vPnFunc']
-        
-        dstar = m - (r*b*vPn)**(-1.0/g)
-        
-    def aFOC(self,a,m,n):
-        '''
-        Evaluate expression for a, derived from the FOC for a in period 3 when
-        illiquid savings are capped. Not a closed form solution, since it also 
-        depends on a and the value function of the next period.
-        
-        Parameters
-        ----------
-        a : float
-            Value of a, used to calculate value function next period.
-        m : float
-            Cash on hand, including period 3 income and liquid assets.
-        n : float
-            Illiquid account balance.
-            
-        Returns
-        -------
-        astar : float
-            Optimal a at an interior solution.
-        '''
-        r = self.Rira
-        ra = self.Rsave
-        b = self.DiscFac
-        g = self.CRRA
-        y4 = self.y4
-        dMax = self.MaxIRA
-        vPm = self.ConsIRA5Period4(y4 + ra*a,r*(n+dMax))['vPmFunc']
-        
-        astar = m - dMax - (ra*b*vPm)**(-1.0/g)
     
     def __call__(self,m,n):
         '''
@@ -1249,16 +1186,15 @@ class ConsIRA5Period3(HARKobject):
         vPm = {} # marginal value wrt m
         vPn = {} # marginal value wrt n
         
-        # interior solution for saving, using a fixed point method
-        
-        d['inter'] = fp(self.dFOC,args=(m,n,))
+        # interior solution for saving
+        d['inter'] = (R_beta_gam*m - y4 - R*n)/(R_beta_gam + R)
         
         # Liquidate illiquid account, no liquid savings
         if d['inter'] < -n: # lower bound on withdrawal is binding
             c['liq'] = m + n
             d['liq'] = -n
             a['liq'] = 0.0
-            v['liq'] = u(c['liq']) + beta*self.ConsIRA5Period4(y4,0)['vFunc']
+            v['liq'] = u(c['liq']) + beta*u(y4)
             vPm['liq'] = uP(c['liq'])
             vPn['liq'] = uP(c['liq'])
             
@@ -1267,25 +1203,24 @@ class ConsIRA5Period3(HARKobject):
         if d['inter'] >= -n and d['inter'] < dMax: # neither bound binds
             c['inter'] = m - d['inter']
             a['inter'] = 0.0
-            v['inter'] = u(c['inter']) +\
-                         beta*self.ConsIRA5Period4(y4,R*(n+d))['vFunc']
+            v['inter'] = u(c['inter']) + beta*u(y4 + R*(n + d['inter']))
             vPm['inter'] = uP(c['inter'])
             vPn['inter'] = uP(c['inter'])
         
         # Iliquid savings cap & no liquid savings
         
-        # interior solution for liquid savings, using a fixed point method
-        a['cap_save'] = fp(self.aFOC,args=(m,n))
+        # interior solution for liquid savings
+        a['cap_save'] = ((Ra_beta_gam*m - y4 - R*n - (Ra_beta_gam + R)*dMax)/
+                         (Ra_beta_gam + 1))
         
         # upper bound on deposits and lower bound on liquid savings binds
         if d['inter'] >= dMax and a['cap_save'] < 0.0:
             c['cap'] = m - dMax
             d['cap'] = dMax
             a['cap'] = 0.0
-            v['cap'] = u(c['cap']) +\
-                       beta*self.ConsIRA5Period4(y4,R*(n+dMax))['vFunc']
+            v['cap'] = u(c['cap']) + beta*u(y4 + R*(n + dMax))
             vPm['cap'] = uP(c['cap'])
-            vPn['cap'] = R*beta*self.ConsIRA5Period4(y4,R*(n+dMax))['vPnFunc']
+            vPn['cap'] = R*beta*uP(y4 + R*(n + dMax))
         
         # Illiquid savings cap & liquid savings
         
@@ -1293,12 +1228,9 @@ class ConsIRA5Period3(HARKobject):
             c['cap_save'] = m - dMax - a['cap_save']
             d['cap_save'] = dMax
             v['cap_save'] = u(c['cap_save']) +\
-                            beta*self.ConsIRA5Period4(y4 + Ra*a['cap_save'],
-                                                      R*(n+dMax))['vFunc']
+                            beta*u(y4 + Ra*a['cap_save'] + R*(n + dMax))
             vPm['cap_save'] = uP(c['cap_save'])
-            vPn['cap_save'] = R*beta*\
-                              self.ConsIRA5Period4(y4 + Ra*a['cap_save']
-                                                   ,R*(n+dMax))['vPnFunc']
+            vPn['cap_save'] = R*beta*uP(y4 + Ra*a['cap_save'] + R*(n + dMax))
           
         # Find max utility among valid solutions
         max_state = max(v, key=v.get)
@@ -1372,36 +1304,6 @@ class ConsIRA5Period2(HARKobject):
         self.y4             = IncomeProfile[4]
         self.ConsIRA5Period3 = deepcopy(ConsIRA5Period3)
         self.output         = output
-        
-    def wFOC(self,d,m,n):
-        '''
-        Evaluate expression for d, derived from the FOC for d in period 3 at
-        an interior solution when making a withdrawal. Not a closed form 
-        solution, since it also depends on d and the value function of the 
-        next period.
-        
-        Parameters
-        ----------
-        d : float
-            Value of d, used to calculate value function next period.
-        m : float
-            Cash on hand, including period 3 income and liquid assets.
-        n : float
-            Illiquid account balance.
-            
-        Returns
-        -------
-        dstar : float
-            Optimal d at an interior solution.
-        '''
-        r = self.Rira
-        t = self.PenIRA
-        b = self.DiscFac
-        g = self.CRRA
-        y3 = self.y3
-        vPn = self.ConsIRA5Period3(y3,r*(n + d))['vPnFunc']
-        
-        dstar = (m - (r*b/(1.0-t)*vPn)**(-1.0/g))/(1.0-t)
         
     def __call__(self,m,n):
         '''
