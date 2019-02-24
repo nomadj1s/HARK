@@ -1102,7 +1102,7 @@ class ConsIRA5Period3(HARKobject):
     Closed form solution for 5-period IRA consumer with perfect foresight.
     Period 4 is the last period (the first period is 0).
     '''
-    distance_criteria = ['period','NextIncome','Disc','CRRA','Rsave',
+    distance_criteria = ['period','NextIncome','DiscFac','CRRA','Rsave',
                          'Rira','MaxIRA','ConsIRA5Period4']
     
     def __init__(self,NextIncome,DiscFac,CRRA,Rsave,Rira,MaxIRA,
@@ -1329,7 +1329,7 @@ class ConsIRA5Period2(HARKobject):
     Closed form solution for 5-period IRA consumer with perfect foresight.
     Period 4 is the last period (the first period is 0).
     '''
-    distance_criteria = ['period','IncomeProfile','Disc','CRRA','Rsave',
+    distance_criteria = ['period','IncomeProfile','DiscFac','CRRA','Rsave',
                          'Rira','PenIRA','MaxIRA','ConsIRA5Period3']
     
     def __init__(self,NextIncome,DiscFac,CRRA,Rsave,Rira,PenIRA,MaxIRA,
@@ -1617,13 +1617,13 @@ class ConsIRA5Period1(HARKobject):
     Closed form solution for 5-period IRA consumer with perfect foresight.
     Period 4 is the last period (the first period is 0).
     '''
-    distance_criteria = ['period','NextIncome','Disc','CRRA','Rsave',
+    distance_criteria = ['period','NextIncome','DiscFac','CRRA','Rsave',
                          'Rira','PenIRA','MaxIRA','ConsIRA5Period2']
     
     def __init__(self,NextIncome,DiscFac,CRRA,Rsave,Rira,PenIRA,MaxIRA,
                  ConsIRA5Period2,output='all'):
         '''
-        Constructor for period 2 solution.
+        Constructor for period 1 solution.
         
         Parameters
         ----------
@@ -1950,13 +1950,13 @@ class ConsIRA5Period0(HARKobject):
     Closed form solution for 5-period IRA consumer with perfect foresight.
     Period 4 is the last period (the first period is 0).
     '''
-    distance_criteria = ['period','NextIncome','Disc','CRRA','Rsave',
-                         'Rira','PenIRA','MaxIRA','ConsIRA5Period2']
+    distance_criteria = ['period','NextIncome','DiscFac','CRRA','Rsave',
+                         'Rira','ConsIRA5Period1']
     
     def __init__(self,NextIncome,DiscFac,CRRA,Rsave,Rira,ConsIRA5Period1,
                  output='all'):
         '''
-        Constructor for period 2 solution.
+        Constructor for period 0 solution.
         
         Parameters
         ----------
