@@ -1061,24 +1061,24 @@ class ConsIRA5Period4(HARKobject):
         
         Parameters
         ----------
-        m : float
+        m : float or np.array
             Cash on hand, including period 4 income and liquid assets.
-        n : float
+        n : float or np.array
             Illiquid account balance.
         
         Returns
         -------
-        solution['cFunc'] : float
+        solution['cFunc'] : float or np.array
             Consumption in period 4.
-        solution['dFunc'] : float
+        solution['dFunc'] : float or np.array
             Withdrawal in period 4.
-        solution['aFunc'] : float
+        solution['aFunc'] : float or np.array
             Liquid saving in period 4
-        solution['vFunc'] : float
+        solution['vFunc'] : float or np.array
             Value function in period 4.
-        solution['vPmFunc'] : float
+        solution['vPmFunc'] : float or np.array
             Marginal value function wrt m in period 4.
-        solution['vPnFunc'] : float
+        solution['vPnFunc'] : float or np.array
             Marginal value function wrt n in period 4.
         '''
         
@@ -2077,7 +2077,7 @@ class ConsIRA5Period0(HARKobject):
             ra*self.ConsIRA5Period1(y1,r*w)['vPmFunc'] >
             r*self.ConsIRA5Period1(y1,r*w)['vPnFunc']):
             c['inter'] = 0.0
-            a['inter'] = fp(self.aFOC,0.0,args=(w))
+            a['inter'] = fp(self.aFOC,0.0,args=(w,))
             d['inter'] = w - a['inter']
             v['inter'] = b*self.ConsIRA5Period1(y1 + ra*a['inter'],
                                                 r*(w-a['inter']))['vFunc']
