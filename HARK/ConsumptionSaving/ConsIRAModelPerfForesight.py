@@ -1323,6 +1323,275 @@ class ConsIRA5Period3(HARKobject):
             return solution
         else:
             return solution[self.output]
+
+class ConsIRAPFnoPen(HARKobject):
+    '''
+    Solution for the IRA consumer with perfect foresight, during periods where
+    there is no early withdrawal penalty.
+    '''
+    distance_criteria = ['period','NextIncome','DiscFac','CRRA','Rsave',
+                         'Rira','MaxIRA','ConsIRAnext']
+    
+    def __init__(self,NextIncome,DiscFac,CRRA,Rsave,Rira,MaxIRA,
+                 ConsIRAnext,output='all'):
+        '''
+        Constructor for solution in period with no early withdrawal penalty.
+        
+        Parameters
+        ----------
+        NextIncome : float or np.array
+            Income in the next period
+        DiscFac : float
+            Intertemporal discount factor for future utility.
+        CRRA : float
+            Coefficient of relative risk aversion.
+        Rsave: float
+            Interest factor on liquid assets between this period and the 
+            succeeding period when assets are positive.
+        Rira:  float
+            Interest factor on illiquid assets between this period and the 
+            succeeding period.
+        MaxIRA: float
+            Maximum allowable IRA deposit, d <= MaxIRA
+        ConsIRAnext : function
+            Returns optimal c,d,a and value function and marginal value
+            function from the next period.
+        output : string
+            Whether consumption, deposit, or value function is output.
+        
+        Returns
+        -------
+        None
+        '''
+        
+        self.NextIncome     = NextIncome
+        self.DiscFac        = DiscFac
+        self.CRRA           = CRRA
+        self.Rsave          = Rsave
+        self.Rira           = Rira
+        self.MaxIRA         = MaxIRA
+        self.yN             = NextIncome
+        self.ConsIRAnext    = deepcopy(ConsIRAnext)
+        self.output         = output
+    
+    def dFOC(self,d,m,n):
+        '''
+        Evaluate expression for d, derived from the FOC for d at an interior 
+        solution. Not a closed form solution, since it also depends on d and 
+        the value function of the next period.
+        
+        Parameters
+        ----------
+        d : float or np.array
+            Value of d, used to calculate value function next period.
+        m : float or np.array
+            Cash on hand, including period 3 income and liquid assets.
+        n : float or np.array
+            Illiquid account balance.
+            
+        Returns
+        -------
+        dstar : float or np.array
+            Optimal d at an interior solution.
+        '''
+        r = self.Rira
+        b = self.DiscFac
+        g = self.CRRA
+        yN = self.yN
+        vPn = self.ConsIRAnext(yN,r*(n + d))['vPnFunc']
+        
+        dstar = m - (r*b*vPn)**(-1.0/g)
+        
+        return dstar
+        
+    def aFOC(self,a,m,n):
+        '''
+        Evaluate expression for a, derived from the FOC for when illiquid 
+        savings are capped. Not a closed form solution, since it also depends 
+        on a and the value function of the next period.
+        
+        Parameters
+        ----------
+        a : float or np.array
+            Value of a, used to calculate value function next period.
+        m : float or np.array
+            Cash on hand, including period 3 income and liquid assets.
+        n : float or np.array
+            Illiquid account balance.
+            
+        Returns
+        -------
+        astar : float or np.array
+            Optimal a at an interior solution.
+        '''
+        r = self.Rira
+        ra = self.Rsave
+        b = self.DiscFac
+        g = self.CRRA
+        yN = self.yN
+        dMax = self.MaxIRA
+        vPm = self.ConsIRAnext(yN + ra*a,r*(n+dMax))['vPmFunc']
+        
+        astar = m - dMax - (ra*b*vPm)**(-1.0/g)
+        
+        return astar
+    
+    def __call__(self,m,n):
+        '''
+        Evaluate optimal consupmtion.
+
+        Parameters
+        ----------
+        m : float or np.array
+            Cash on hand, including current period income and liquid assets.
+        n : float or np.array
+            Illiquid account balance.
+        
+        Returns
+        -------
+        solution['cFunc'] : float or np.array
+            Consumption in current period.
+        solution['dFunc'] : float or np.array
+            Withdrawal in current period.
+        solution['aFunc'] : float or np.array
+            Liquid saving in current period.
+        solution['vFunc'] : float or np.array
+            Value function in current period.
+        solution['vPmFunc'] : float or np.array
+            Marginal value function wrt m in current period.
+        solution['vPnFunc'] : float or np.array
+            Marginal value function wrt n in current period.
+        '''
+        # convert to np.arrays
+        m = np.asarray(m,dtype=np.float)
+        n = np.asarray(n,dtype=np.float)
+
+        b = self.DiscFac
+        r = self.Rira
+        ra = self.Rsave
+        yN = self.yN
+        dMax = self.MaxIRA
+        u = lambda c : utility(c,gam=self.CRRA)  # utility function
+        uP = lambda c : utilityP(c,gam=self.CRRA) # marginal utility function
+        
+        s = 4 # total possible states in this period
+        
+        # create placeholders with arrays of dimension s, for each element of m
+        c = np.reshape(np.repeat(m,s,axis=m.ndim-1),m.shape + (s,)) # consumption
+        d = np.full_like(c,0.0) # deposit/withdrawal
+        a = np.full_like(c,0.0) # liquid savings
+        v = np.full_like(c,-np.inf) # value function
+        vPm = np.full_like(c,1.0) # marginal value wrt m
+        vPn = np.full_like(c,1.0) # marginal value wrt n
+        
+        # interior solution for withdrawal/deposit, using a fixed point method
+        
+        d[...,1] = fp(self.dFOC,np.full_like(m,0.0),args=(m,n))
+        
+        # Liquidate illiquid account, no liquid savings
+        liq =  d[...,1] < -n # lower bound on withdrawal is binding
+        
+        c[...,0][liq] = m[liq] + n[liq]
+        d[...,0][liq] = -n[liq]
+        a[...,0][liq] = 0.0
+        v[...,0][liq] = u(c[...,0][liq]) +\
+                        b*self.ConsIRAnext(yN[liq],0)['vFunc']
+        vPm[...,0][liq] = uP(c[...,0][liq])
+        vPn[...,0][liq] = uP(c[...,0][liq])
+            
+        # Interior solution, partial illiquid withdrawal or saving,
+        # no liquid saving
+        inter = (d[...,1] >= -n) & (d[...,1] <= dMax) # neither bound binds
+        c[...,1][inter] = m[inter] - d[...,1][inter]
+        a[...,1][inter] = 0.0
+        v[...,1][inter] = u(c[...,1][inter]) +\
+                          b*self.ConsIRAnext(yN[inter],
+                                             r*(n[inter]
+                                             +d[...,1][inter]))['vFunc']
+        vPm[...,1][inter] = uP(c[...,1][inter])
+        vPm[...,1][inter] = uP(c[...,1][inter])
+        
+        # Iliquid savings cap & no liquid savings
+        
+        # interior solution for liquid savings, using a fixed point method
+        a[...,3][m > dMax] = fp(self.aFOC,np.full_like(m[m> dMax],0.0),
+                                args=(m[m>dMax],n[m>dMax]))
+        
+        # upper bound on deposits and lower bound on liquid savings binds
+        cap = (d[...,1] > dMax) & (a[...,3] < 0.0) & (m > dMax)
+        c[...,2][cap] = m[cap] - dMax
+        d[...,2][cap] = dMax
+        a[...,2][cap] = 0.0
+        v[...,2][cap] = u(c[...,2][cap]) +\
+                        b*self.ConsIRAnext(yN[cap],r*(n[cap]+dMax))['vFunc']
+        vPm[...,2][cap] = uP(c[...,2][cap])
+        vPn[...,2][cap] = r*b*self.ConsIRAnext(yN[cap],
+                                               r*(n[cap]+dMax))['vPnFunc']
+        
+        # Illiquid savings cap & liquid savings
+        # lower bound on liquid savings doesn't bind
+        cap_save = (a[...,3] >= 0.0) & (m > dMax)
+        c[...,3][cap_save] = m[cap_save] - dMax - a[...,3][cap_save]
+        d[...,3][cap_save] = dMax
+        v[...,3][cap_save] = u(c[...,3][cap_save]) +\
+                             b*self.ConsIRAnext(yN[cap_save]
+                                                +ra*a[...,3][cap_save],
+                                                r*(n[cap_save]+dMax))['vFunc']
+        vPm[...,3][cap_save] = uP(c[...,3][cap_save])
+        vPn[...,3][cap_save] = r*b*self.ConsIRAnext(yN[cap_save]
+                                                    +ra*a[...,3][cap_save],
+                                                    r*(n[cap_save]+dMax)
+                                                    )['vPnFunc']
+        
+        # Find max utility among valid solutions
+        
+        
+        if dMax < m: # saving can't exceed m
+            a['cap_save'] = fp(self.aFOC,0.0,args=(m,n))
+        
+            # upper bound on deposits and lower bound on liquid savings binds
+        
+            if d['inter'] > dMax and a['cap_save'] < 0.0:
+                c['cap'] = m - dMax
+                d['cap'] = dMax
+                a['cap'] = 0.0
+                v['cap'] = u(c['cap']) +\
+                           b*self.ConsIRA5Period4(y4,r*(n+dMax))['vFunc']
+                vPm['cap'] = uP(c['cap'])
+                vPn['cap'] = r*b*self.ConsIRA5Period4(y4,r*(n+dMax))['vPnFunc']
+        
+            # Illiquid savings cap & liquid savings
+        
+            if a['cap_save'] >= 0.0: # lower bound on liquid savings doesn't bind
+                c['cap_save'] = m - dMax - a['cap_save']
+                d['cap_save'] = dMax
+                v['cap_save'] = u(c['cap_save']) +\
+                                b*self.ConsIRA5Period4(y4 + ra*a['cap_save'],
+                                                       r*(n+dMax))['vFunc']
+                vPm['cap_save'] = uP(c['cap_save'])
+                vPn['cap_save'] = r*b*self.ConsIRA5Period4(y4 
+                                                           + ra*a['cap_save'],
+                                                           r*(n+dMax)
+                                                           )['vPnFunc']
+          
+        # Find max utility among valid solutions
+        max_state = max(v, key=v.get)
+        
+        c_star = c[max_state]
+        d_star = d[max_state]
+        a_star = a[max_state]
+        v_star = v[max_state]
+        vPm_star = vPm[max_state]
+        vPn_star = vPn[max_state]
+        
+        solution = {'cFunc': c_star, 'dFunc': d_star, 'aFunc': a_star, 
+                    'vFunc': v_star, 'vPmFunc': vPm_star, 'vPnFunc': vPn_star,
+                    'max_state': max_state}
+        
+        if self.output == 'all':
+            return solution
+        else:
+            return solution[self.output]
         
 class ConsIRA5Period2(HARKobject):
     '''
