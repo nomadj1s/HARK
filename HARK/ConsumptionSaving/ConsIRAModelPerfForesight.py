@@ -1096,6 +1096,83 @@ class ConsIRA5Period4(HARKobject):
             return solution
         else:
             return solution[self.output]
+        
+class ConsIRAterminal(HARKobject):
+    '''
+    Closed form solution for 5-period IRA consumer with perfect foresight.
+    Solution for last period.
+    '''
+    distance_criteria = ['CRRA','PenIRA']
+    
+    def __init__(self,CRRA,PenIRA=0.0,output='all'):
+        '''
+        Constructor for last period solution.
+        
+        Parameters
+        ----------
+        CRRA : float
+            Coefficient of relative risk aversion.
+        PenIRA: float
+            Penalty for early withdrawals (d < 0) from the illiqui account, 
+            i.e. before t = T_ira.
+        output : string
+            Whether consumption, deposit, or value or marginal value 
+            function is output.
+        
+        Returns
+        -------
+        None
+        '''
+        self.CRRA = CRRA
+        self.PenIRA = PenIRA
+        self.output = output
+        
+    def __call__(self,m,n):
+        '''
+        Evaluate consumption decision for period 4.
+        
+        Parameters
+        ----------
+        m : float or np.array
+            Cash on hand, including period 4 income and liquid assets.
+        n : float or np.array
+            Illiquid account balance.
+        
+        Returns
+        -------
+        solution['cFunc'] : float or np.array
+            Consumption in period 4.
+        solution['dFunc'] : float or np.array
+            Withdrawal in period 4.
+        solution['aFunc'] : float or np.array
+            Liquid saving in period 4
+        solution['vFunc'] : float or np.array
+            Value function in period 4.
+        solution['vPmFunc'] : float or np.array
+            Marginal value function wrt m in period 4.
+        solution['vPnFunc'] : float or np.array
+            Marginal value function wrt n in period 4.
+        '''
+        m = np.asarray(m,dtype=np.float)
+        n = np.asarray(n,dtype=np.float)
+        
+        t = self.PenIRA
+        
+        c = m + (1.0-t)*n
+        d = -n
+        a = m*0.0
+        v = utility(c,gam=self.CRRA)
+        vPm = utilityP(c,gam=self.CRRA)
+        vPn = utilityP(c,gam=self.CRRA)
+        max_state = m*0
+        
+        solution = {'cFunc': c, 'dFunc': d, 'aFunc': a, 'vFunc': v, 
+                    'vPmFunc': vPm, 'vPnFunc': vPn, 'max_state': max_state}
+        
+        if self.output == 'all':
+            return solution
+        else:
+            return solution[self.output]
 
 class ConsIRA5Period3(HARKobject):
     '''
@@ -1374,7 +1451,7 @@ class ConsIRAPFnoPen(HARKobject):
         self.ConsIRAnext    = deepcopy(ConsIRAnext)
         self.output         = output
     
-    def dFOC(self,d,m,n):
+    def dFOC(self,d,m,n,yN):
         '''
         Evaluate expression for d, derived from the FOC for d at an interior 
         solution. Not a closed form solution, since it also depends on d and 
@@ -1385,9 +1462,11 @@ class ConsIRAPFnoPen(HARKobject):
         d : float or np.array
             Value of d, used to calculate value function next period.
         m : float or np.array
-            Cash on hand, including period 3 income and liquid assets.
+            Cash on hand, including current period income and liquid assets.
         n : float or np.array
             Illiquid account balance.
+        yN : float or np.array
+            Income next period
             
         Returns
         -------
@@ -1397,14 +1476,13 @@ class ConsIRAPFnoPen(HARKobject):
         r = self.Rira
         b = self.DiscFac
         g = self.CRRA
-        yN = self.yN
         vPn = self.ConsIRAnext(yN,r*(n + d))['vPnFunc']
         
         dstar = m - (r*b*vPn)**(-1.0/g)
         
         return dstar
         
-    def aFOC(self,a,m,n):
+    def aFOC(self,a,m,n,yN):
         '''
         Evaluate expression for a, derived from the FOC for when illiquid 
         savings are capped. Not a closed form solution, since it also depends 
@@ -1415,9 +1493,11 @@ class ConsIRAPFnoPen(HARKobject):
         a : float or np.array
             Value of a, used to calculate value function next period.
         m : float or np.array
-            Cash on hand, including period 3 income and liquid assets.
+            Cash on hand, including current period income and liquid assets.
         n : float or np.array
             Illiquid account balance.
+        yN : float or np.array
+            Income next period
             
         Returns
         -------
@@ -1428,7 +1508,6 @@ class ConsIRAPFnoPen(HARKobject):
         ra = self.Rsave
         b = self.DiscFac
         g = self.CRRA
-        yN = self.yN
         dMax = self.MaxIRA
         vPm = self.ConsIRAnext(yN + ra*a,r*(n+dMax))['vPmFunc']
         
@@ -1470,6 +1549,11 @@ class ConsIRAPFnoPen(HARKobject):
         r = self.Rira
         ra = self.Rsave
         yN = self.yN
+        
+        # Ensure comformability between yN and m
+        if np.asarray(yN).shape != m.shape:
+            yN = np.full_like(m,np.asarray(yN)[0])
+        
         dMax = self.MaxIRA
         u = lambda c : utility(c,gam=self.CRRA)  # utility function
         uP = lambda c : utilityP(c,gam=self.CRRA) # marginal utility function
@@ -1477,7 +1561,8 @@ class ConsIRAPFnoPen(HARKobject):
         s = 4 # total possible states in this period
         
         # create placeholders with arrays of dimension s, for each element of m
-        c = np.reshape(np.repeat(m,s,axis=m.ndim-1),m.shape + (s,)) # consumption
+        # consumption
+        c = np.reshape(np.repeat(m,s,axis=-1),m.shape + (s,))
         d = np.full_like(c,0.0) # deposit/withdrawal
         a = np.full_like(c,0.0) # liquid savings
         v = np.full_like(c,-np.inf) # value function
@@ -1486,7 +1571,7 @@ class ConsIRAPFnoPen(HARKobject):
         
         # interior solution for withdrawal/deposit, using a fixed point method
         
-        d[...,1] = fp(self.dFOC,np.full_like(m,0.0),args=(m,n))
+        d[...,1] = fp(self.dFOC,np.full_like(m,0.0),args=(m,n,yN))
         
         # Liquidate illiquid account, no liquid savings
         liq =  d[...,1] < -n # lower bound on withdrawal is binding
@@ -1495,7 +1580,8 @@ class ConsIRAPFnoPen(HARKobject):
         d[...,0][liq] = -n[liq]
         a[...,0][liq] = 0.0
         v[...,0][liq] = u(c[...,0][liq]) +\
-                        b*self.ConsIRAnext(yN[liq],0)['vFunc']
+                        b*self.ConsIRAnext(yN[liq]
+                                           ,np.zeros(n[liq].shape))['vFunc']
         vPm[...,0][liq] = uP(c[...,0][liq])
         vPn[...,0][liq] = uP(c[...,0][liq])
             
@@ -1509,13 +1595,13 @@ class ConsIRAPFnoPen(HARKobject):
                                              r*(n[inter]
                                              +d[...,1][inter]))['vFunc']
         vPm[...,1][inter] = uP(c[...,1][inter])
-        vPm[...,1][inter] = uP(c[...,1][inter])
+        vPn[...,1][inter] = uP(c[...,1][inter])
         
         # Iliquid savings cap & no liquid savings
         
         # interior solution for liquid savings, using a fixed point method
         a[...,3][m > dMax] = fp(self.aFOC,np.full_like(m[m> dMax],0.0),
-                                args=(m[m>dMax],n[m>dMax]))
+                                args=(m[m>dMax],n[m>dMax],yN[m>dMax]))
         
         # upper bound on deposits and lower bound on liquid savings binds
         cap = (d[...,1] > dMax) & (a[...,3] < 0.0) & (m > dMax)
@@ -1544,45 +1630,17 @@ class ConsIRAPFnoPen(HARKobject):
                                                     )['vPnFunc']
         
         # Find max utility among valid solutions
+        max_state = np.argmax(v,axis=-1)
+        max_selector = np.expand_dims(max_state,axis=-1)
         
-        
-        if dMax < m: # saving can't exceed m
-            a['cap_save'] = fp(self.aFOC,0.0,args=(m,n))
-        
-            # upper bound on deposits and lower bound on liquid savings binds
-        
-            if d['inter'] > dMax and a['cap_save'] < 0.0:
-                c['cap'] = m - dMax
-                d['cap'] = dMax
-                a['cap'] = 0.0
-                v['cap'] = u(c['cap']) +\
-                           b*self.ConsIRA5Period4(y4,r*(n+dMax))['vFunc']
-                vPm['cap'] = uP(c['cap'])
-                vPn['cap'] = r*b*self.ConsIRA5Period4(y4,r*(n+dMax))['vPnFunc']
-        
-            # Illiquid savings cap & liquid savings
-        
-            if a['cap_save'] >= 0.0: # lower bound on liquid savings doesn't bind
-                c['cap_save'] = m - dMax - a['cap_save']
-                d['cap_save'] = dMax
-                v['cap_save'] = u(c['cap_save']) +\
-                                b*self.ConsIRA5Period4(y4 + ra*a['cap_save'],
-                                                       r*(n+dMax))['vFunc']
-                vPm['cap_save'] = uP(c['cap_save'])
-                vPn['cap_save'] = r*b*self.ConsIRA5Period4(y4 
-                                                           + ra*a['cap_save'],
-                                                           r*(n+dMax)
-                                                           )['vPnFunc']
-          
-        # Find max utility among valid solutions
-        max_state = max(v, key=v.get)
-        
-        c_star = c[max_state]
-        d_star = d[max_state]
-        a_star = a[max_state]
-        v_star = v[max_state]
-        vPm_star = vPm[max_state]
-        vPn_star = vPn[max_state]
+        c_star = np.reshape(np.take_along_axis(c,max_selector,axis=-1),m.shape)
+        d_star = np.reshape(np.take_along_axis(d,max_selector,axis=-1),m.shape)
+        a_star = np.reshape(np.take_along_axis(a,max_selector,axis=-1),m.shape)
+        v_star = np.reshape(np.take_along_axis(v,max_selector,axis=-1),m.shape)
+        vPm_star = np.reshape(np.take_along_axis(vPm,max_selector,axis=-1),
+                              m.shape)
+        vPn_star = np.reshape(np.take_along_axis(vPn,max_selector,axis=-1),
+                              m.shape)
         
         solution = {'cFunc': c_star, 'dFunc': d_star, 'aFunc': a_star, 
                     'vFunc': v_star, 'vPmFunc': vPm_star, 'vPnFunc': vPn_star,
