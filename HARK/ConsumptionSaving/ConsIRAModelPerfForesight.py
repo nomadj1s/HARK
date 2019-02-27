@@ -1548,19 +1548,19 @@ class ConsIRAPFnoPen(HARKobject):
             Marginal value function wrt n in current period.
         '''
         # convert to np.arrays
-        m = np.atlesat_1d(m).astype(np.float)
-        n = np.atlesat_1d(n).astype(np.float)
-        yN = np.atlesat_1d(self.yN).astype(np.float)
+        m = np.atleast_1d(m).astype(np.float)
+        n = np.atleast_1d(n).astype(np.float)
+        yN = np.atleast_1d(self.yN).astype(np.float)
 
                 # Ensure comformability between m, n, and yN
         if m.shape != n.shape:
             if m.size >= n.size:
-                n = np.full_like(m,n.flatten()[0])
+                n = np.full_like(m,n.item(0))
             else:
-                m = np.full_like(n,m.flatten()[0])
+                m = np.full_like(n,m.item(0))
         
         if yN.shape != m.shape:
-            yN = np.full_like(m,yN.flatten()[0])
+            yN = np.full_like(m,yN.item(0))
 
         b = self.DiscFac
         r = self.Rira
@@ -2503,9 +2503,9 @@ class ConsIRAPFpen(HARKobject):
             Marginal value function wrt n in current period.
         '''
         # convert to np.arrays
-        m = np.atlesat_1d(m).astype(np.float)
-        n = np.atlesat_1d(n).astype(np.float)
-        yN = np.atlesat_1d(self.yN).astype(np.float)
+        m = np.atleast_1d(m).astype(np.float)
+        n = np.atleast_1d(n).astype(np.float)
+        yN = np.atleast_1d(self.yN).astype(np.float)
 
                 # Ensure comformability between m, n, and yN
         if m.shape != n.shape:
@@ -2600,7 +2600,7 @@ class ConsIRAPFpen(HARKobject):
         vPm[...,3][kink_save] = uP(c[...,3][kink_save])
         vPn[...,3][kink_save] = r*b*self.ConsIRAnext(yN[kink] 
                                                      + ra*a[...,3][kink_save],
-                                                     r*n[kink])['vPnFunc']
+                                                     r*n[kink_save])['vPnFunc']
             
         # Interior solution, partial liquid deposit, no liquid saving
         dep = (d[...,4] >= 0.0) & (d[...,4] <= dMax)
