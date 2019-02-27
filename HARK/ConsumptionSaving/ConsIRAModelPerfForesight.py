@@ -1517,7 +1517,13 @@ class ConsIRAPFnoPen(HARKobject):
     
     def __call__(self,m,n):
         '''
-        Evaluate optimal consupmtion.
+        Evaluate optimal consupmtion, deposit, savings, value and marginal
+        value functions, given liquid and illiquid assets. If n and m don't
+        have the same dimension, the one with the larger dimension takes
+        precedent, and the first element of the one with the smaller dimension
+        is used for all values of the dominent argument. If self.yN has a
+        different dimension than the dominent argument, it is likewise reduced
+        to its first element.
 
         Parameters
         ----------
@@ -2458,30 +2464,43 @@ class ConsIRAPFpen(HARKobject):
     
     def __call__(self,m,n):
         '''
-        Evaluate optimal consupmtion in period 1.
+        Evaluate optimal consupmtion, deposit, savings, value and marginal
+        value functions, given liquid and illiquid assets. If n and m don't
+        have the same dimension, the one with the larger dimension takes
+        precedent, and the first element of the one with the smaller dimension
+        is used for all values of the dominent argument. If self.yN has a
+        different dimension than the dominent argument, it is likewise reduced
+        to its first element.
         
         Parameters
         ----------
-        m : float
-            Cash on hand, including period 1 income and liquid assets.
-        n : float
+        m : float or np.array
+            Cash on hand, including current period income and liquid assets.
+        n : float or np.array
             Illiquid account balance.
         
         Returns
         -------
-        solution['cFunc'] : float
-            Consumption in period 1.
-        solution['dFunc'] : float
-            Withdrawal in period 1.
-        solution['aFunc'] : float
-            Liquid saving in period 1.
-        solution['vFunc'] : float
-            Value function in period 1.
-        solution['vPmFunc'] : float
-            Marginal value function wrt m in period 1.
-        solution['vPnFunc'] : float
-            Marginal value function wrt n in period 1.
+        solution['cFunc'] : float or np.array
+            Consumption in current period.
+        solution['dFunc'] : float or np.array
+            Withdrawal in current period.
+        solution['aFunc'] : float or np.array
+            Liquid saving in current period.
+        solution['vFunc'] : float or np.array
+            Value function in current period.
+        solution['vPmFunc'] : float or np.array
+            Marginal value function wrt m in current period.
+        solution['vPnFunc'] : float or np.array
+            Marginal value function wrt n in current period.
         '''
+        # convert to np.arrays
+        m = np.asarray(m,dtype=np.float)
+        n = np.asarray(n,dtype=np.float)
+        
+        # Ensure comformability between m, n, and yN
+        if 
+    
         
         b = self.DiscFac
         r = self.Rira
