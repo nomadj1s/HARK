@@ -1548,18 +1548,23 @@ class ConsIRAPFnoPen(HARKobject):
             Marginal value function wrt n in current period.
         '''
         # convert to np.arrays
-        m = np.asarray(m,dtype=np.float)
-        n = np.asarray(n,dtype=np.float)
+        m = np.atlesat_1d(m).astype(np.float)
+        n = np.atlesat_1d(n).astype(np.float)
+        yN = np.atlesat_1d(self.yN).astype(np.float)
+
+                # Ensure comformability between m, n, and yN
+        if m.shape != n.shape:
+            if m.size >= n.size:
+                n = np.full_like(m,n.flatten()[0])
+            else:
+                m = np.full_like(n,m.flatten()[0])
+        
+        if yN.shape != m.shape:
+            yN = np.full_like(m,yN.flatten()[0])
 
         b = self.DiscFac
         r = self.Rira
         ra = self.Rsave
-        yN = self.yN
-        
-        # Ensure comformability between yN and m
-        if np.asarray(yN).shape != m.shape:
-            yN = np.full_like(m,np.asarray(yN)[0])
-        
         dMax = self.MaxIRA
         u = lambda c : utility(c,gam=self.CRRA)  # utility function
         uP = lambda c : utilityP(c,gam=self.CRRA) # marginal utility function
@@ -1594,6 +1599,7 @@ class ConsIRAPFnoPen(HARKobject):
         # Interior solution, partial illiquid withdrawal or saving,
         # no liquid saving
         inter = (d[...,1] >= -n) & (d[...,1] <= dMax) # neither bound binds
+        
         c[...,1][inter] = m[inter] - d[...,1][inter]
         a[...,1][inter] = 0.0
         v[...,1][inter] = u(c[...,1][inter]) +\
@@ -1611,6 +1617,7 @@ class ConsIRAPFnoPen(HARKobject):
         
         # upper bound on deposits and lower bound on liquid savings binds
         cap = (d[...,1] > dMax) & (a[...,3] < 0.0) & (m > dMax)
+        
         c[...,2][cap] = m[cap] - dMax
         d[...,2][cap] = dMax
         a[...,2][cap] = 0.0
@@ -1623,6 +1630,7 @@ class ConsIRAPFnoPen(HARKobject):
         # Illiquid savings cap & liquid savings
         # lower bound on liquid savings doesn't bind
         cap_save = (a[...,3] >= 0.0) & (m > dMax)
+        
         c[...,3][cap_save] = m[cap_save] - dMax - a[...,3][cap_save]
         d[...,3][cap_save] = dMax
         v[...,3][cap_save] = u(c[...,3][cap_save]) +\
@@ -2495,129 +2503,162 @@ class ConsIRAPFpen(HARKobject):
             Marginal value function wrt n in current period.
         '''
         # convert to np.arrays
-        m = np.asarray(m,dtype=np.float)
-        n = np.asarray(n,dtype=np.float)
+        m = np.atlesat_1d(m).astype(np.float)
+        n = np.atlesat_1d(n).astype(np.float)
+        yN = np.atlesat_1d(self.yN).astype(np.float)
+
+                # Ensure comformability between m, n, and yN
+        if m.shape != n.shape:
+            if m.size >= n.size:
+                n = np.full_like(m,n.item(0))
+            else:
+                m = np.full_like(n,m.item(0))
         
-        # Ensure comformability between m, n, and yN
-        if 
+        if yN.shape != m.shape:
+            yN = np.full_like(m,yN.item(0))
     
-        
         b = self.DiscFac
         r = self.Rira
         t = self.PenIRA
         ra = self.Rsave
-        y2 = self.y2
         dMax = self.MaxIRA
         u = lambda c : utility(c,gam=self.CRRA)  # utility function
         uP = lambda c: utilityP(c,gam=self.CRRA) # marginal utility function
         
-        c = {} # consumption
-        d = {} # deposit/withdrawal
-        a = {} # liquid savings
-        v = {} # value function
-        vPm = {} # marginal value wrt m
-        vPn = {} # marginal value wrt n
+        s = 7 # total possible states in this period
+        
+        # create placeholders with arrays of dimension s, for each element of m
+        # consumption
+        c = np.reshape(np.repeat(m,s,axis=-1),m.shape + (s,))
+        d = np.full_like(c,0.0) # deposit/withdrawal
+        a = np.full_like(c,0.0) # liquid savings
+        v = np.full_like(c,-np.inf) # value function
+        vPm = np.full_like(c,1.0) # marginal value wrt m
+        vPn = np.full_like(c,1.0) # marginal value wrt n
         
         # interior solution for withdrawal, using a fixed point method
         
-        d['with'] = fp(self.wFOC,0.0,args=(m,n))
-        
+        d[...,1] = fp(self.wFOC,np.full_like(m,0.0),args=(m,n,yN))
+               
         # Liquidate illiquid account, no liquid savings
+        liq = d[...,1] < -n # lower bound on withdrawal is binding
         
-        # using solution, lower bound on withdrawals binding
-        if d['with'] < -n: # lower bound on withdrawal is binding
-            c['liq'] = m + (1.0-t)*n
-            d['liq'] = -n
-            a['liq'] = 0.0
-            v['liq'] = u(c['liq']) + b*self.ConsIRA5Period2(y2,0)['vFunc']
-            vPm['liq'] = uP(c['liq'])
-            vPn['liq'] = (1.0-t)*uP(c['liq'])
+        c[...,0][liq] = m[liq] + (1.0-t)*n[liq]
+        d[...,0][liq] = -n[liq]
+        a[...,0][liq] = 0.0
+        v[...,0][liq] = u(c[...,0][liq]) +\
+                        b*self.ConsIRAnext(yN[liq]
+                                           ,np.zeros(n[liq].shape))['vFunc']
+        vPm[...,0][liq] = uP(c[...,0][liq])
+        vPn[...,0][liq] = (1.0-t)*uP(c[...,0][liq])
+        
             
         # Interior solution, partial illiquid withdrawal, no liquid saving
-        if d['with'] >= -n and d['with'] <= 0.0: # neither bound binds
-            c['with'] = m - (1.0-t)*d['with']
-            a['with'] = 0.0
-            v['with'] = u(c['with']) +\
-                        b*self.ConsIRA5Period2(y2,r*(n+d['with']))['vFunc']
-            vPm['with'] = uP(c['with'])
-            vPn['with'] = (1.0-t)*uP(c['with'])
+        withdr = (d[...,1] >= -n) & (d[...,1] <= 0.0) # neither bound binds
+        
+        c[...,1][withdr] = m[withdr] - (1.0-t)*d[...,1][withdr]
+        a[...,1][withdr] = 0.0
+        v[...,1][withdr] = u(c[...,1][withdr]) +\
+                          b*self.ConsIRAnext(yN[withdr],
+                                             r*(n[withdr]
+                                             +d[...,1][withdr]))['vFunc']
+        vPm[...,1][withdr] = uP(c[...,1][withdr])
+        vPn[...,1][withdr] = (1.0-t)*uP(c[...,1][withdr])
         
         # Corner solution w/ no illiquid withdrawal or saving, no liquid saving
         
-        # interior solution for illiquid deposit, using a fixed point method
-        d['dep'] = fp(self.dFOC,0.0,args=(m,n))
-        a['kink_save'] = fp(self.aKinkFOC,0.0,args=(m,n))
+        # interior solution for illiquid deposit and liquid savings at an
+        # illiquid kink, using a fixed point method
+        d[...,4] = fp(self.dFOC,np.full_like(m,0.0),args=(m,n,yN))
+        a[...,3] = fp(self.aKinkFOC,np.full_like(m,0.0),args=(m,n,yN))
         
         # upperbound on withdrawals and lower bound on deposits bind
         # lower bound on liquid savings binds
-        if d['with'] > 0.0 and d['dep'] < 0.0 and a['kink_save'] < 0.0:
-            c['kink'] = m
-            d['kink'] = 0.0
-            a['kink'] = 0.0
-            v['kink'] = u(c['kink']) + b*self.ConsIRA5Period2(y2,r*n)['vFunc']
-            vPm['kink'] = uP(c['kink'])
-            vPn['kink'] = r*b*self.ConsIRA5Period2(y2,r*n)['vPnFunc']
+        kink = (d[...,1] > 0.0) & (d[...,4] < 0.0) & (a[...,3] < 0.0)
+        
+        c[...,2][kink] = m[kink]
+        d[...,2][kink] = 0.0
+        a[...,2][kink] = 0.0
+        v[...,2][kink] = u(c[...,2][kink]) + b*self.ConsIRAnext(yN[kink],
+                                                                r*n[kink]
+                                                                )['vFunc']
+        vPm[...,2][kink] = uP(c[...,2][kink])
+        vPn[...,2][kink] = r*b*self.ConsIRAnext(yN[kink],r*n[kink])['vPnFunc']
             
         # Corner solution w/ no illiquid withdrawal or saving & liquid saving
         
         # upperbound on withdrawals and lower bound on deposits bind
         # lower bound on liquid savings doesn't bind
-        if d['with'] > 0.0 and d['dep'] < 0.0 and a['kink_save'] >= 0.0:
-            c['kink_save'] = m - a['kink_save']
-            d['kink_save'] = 0.0
-            v['kink_save'] = u(c['kink_save']) +\
-                             b*self.ConsIRA5Period2(y2 + ra*a['kink_save'],
-                                                    r*n)['vFunc']
-            vPm['kink_save'] = uP(c['kink_save'])
-            vPn['kink_save'] = r*b*self.ConsIRA5Period2(y2 + ra*a['kink_save'],
-                                                        r*n)['vPnFunc']
+        kink_save = (d[...,1] > 0.0) & (d[...,4] < 0.0) & (a[...,3] >= 0.0)
+        
+        c[...,3][kink_save] = m[kink_save] - a[...,3][kink_save]
+        d[...,3][kink_save] = 0.0
+        v[...,3][kink_save] = u(c[...,3][kink_save]) +\
+                              b*self.ConsIRAnext(yN[kink_save] +
+                                                 ra*a[...,3][kink_save],
+                                                 r*n[kink_save])['vFunc']
+        vPm[...,3][kink_save] = uP(c[...,3][kink_save])
+        vPn[...,3][kink_save] = r*b*self.ConsIRAnext(yN[kink] 
+                                                     + ra*a[...,3][kink_save],
+                                                     r*n[kink])['vPnFunc']
             
         # Interior solution, partial liquid deposit, no liquid saving
-        if d['dep'] >= 0.0 and d['dep'] <= dMax:
-            c['dep'] = m - d['dep']
-            a['dep'] = 0.0
-            v['dep'] = u(c['dep']) +\
-                       b*self.ConsIRA5Period2(y2,r*(n+d['dep']))['vFunc']
-            vPm['dep'] = uP(c['dep'])
-            vPn['dep'] = uP(c['dep'])
-            
+        dep = (d[...,4] >= 0.0) & (d[...,4] <= dMax)
+        
+        c[...,4][dep] = m[dep] - d[...,4][dep]
+        a[...,4][dep] = 0.0
+        v[...,4][dep] = u(c[...,4][dep]) +\
+                        b*self.ConsIRAnext(yN[dep],
+                                           r*(n[dep] + d[...,4][dep]))['vFunc']
+        vPm[...,4][dep] = uP(c[...,4][dep])
+        vPn[...,4][dep] = uP(c[...,4][dep])
+                    
         # Illiquid savings cap, no liquid savings
         
         # interior solution for liquid svaings, using a fixed point method
-        if dMax < m:
-            a['cap_save'] = fp(self.aFOC,0.0,args=(m,n))
-            
-            # upper bound on deposits and lower bound on liquid savings binds
-            if d['dep'] > dMax and a['cap_save'] < 0.0:
-                c['cap'] = m - dMax
-                d['cap'] = dMax
-                a['cap'] = 0.0
-                v['cap'] = u(c['cap']) +\
-                           b*self.ConsIRA5Period2(y2,r*(n+dMax))['vFunc']
-                vPm['cap'] = uP(c['cap'])
-                vPn['cap'] = r*b*self.ConsIRA5Period2(y2,r*(n+dMax))['vPnFunc']
-            
-            # Illiquid savings cap and liquid savings
-            if a['cap_save'] >= 0.0: # lower bound on liq savings doesn't bind
-                c['cap_save'] = m - dMax - a['cap_save']
-                d['cap_save'] = dMax
-                v['cap_save'] = u(c['cap_save']) +\
-                                b*self.ConsIRA5Period2(y2 + ra*a['cap_save'],
-                                                       r*(n+dMax))['vFunc']
-                vPm['cap_save'] = uP(c['cap_save'])
-                vPn['cap_save'] = r*b*self.ConsIRA5Period2(y2 
-                                                           + ra*a['cap_save'],
-                                                           r*(n+dMax)
-                                                           )['vPnFunc']
-        # Find max utility among valid solutions
-        max_state = max(v, key=v.get)
+        a[...,6][m > dMax] = fp(self.aFOC,np.full_like(m[m> dMax],0.0),
+                                args=(m[m>dMax],n[m>dMax],yN[m>dMax]))
         
-        c_star = c[max_state]
-        d_star = d[max_state]
-        a_star = a[max_state]
-        v_star = v[max_state]
-        vPm_star = vPm[max_state]
-        vPn_star = vPn[max_state]
+        # upper bound on deposits and lower bound on liquid savings binds
+        cap = (d[...,4] > dMax) & (a[...,6] < 0.0) & (m > dMax)
+        c[...,5][cap] = m[cap] - dMax
+        d[...,5][cap] = dMax
+        a[...,5][cap] = 0.0
+        v[...,5][cap] = u(c[...,5][cap]) +\
+                        b*self.ConsIRAnext(yN[cap],r*(n[cap]+dMax))['vFunc']
+        vPm[...,5][cap] = uP(c[...,5][cap])
+        vPn[...,5][cap] = r*b*self.ConsIRAnext(yN[cap],
+                                               r*(n[cap]+dMax))['vPnFunc']
+            
+        # Illiquid savings cap and liquid savings
+        # lower bound on liquid savings doesn't bind
+        cap_save = (a[...,6] >= 0.0) & (m > dMax)
+        
+        c[...,6][cap_save] = m[cap_save] - dMax - a[...,6][cap_save]
+        d[...,6][cap_save] = dMax
+        v[...,6][cap_save] = u(c[...,6][cap_save]) +\
+                             b*self.ConsIRAnext(yN[cap_save]
+                                                +ra*a[...,6][cap_save],
+                                                r*(n[cap_save]+dMax))['vFunc']
+        vPm[...,6][cap_save] = uP(c[...,6][cap_save])
+        vPn[...,6][cap_save] = r*b*self.ConsIRAnext(yN[cap_save]
+                                                    +ra*a[...,6][cap_save],
+                                                    r*(n[cap_save]+dMax)
+                                                    )['vPnFunc']
+        
+        # Find max utility among valid solutions
+        # Find max utility among valid solutions
+        max_state = np.argmax(v,axis=-1)
+        max_selector = np.expand_dims(max_state,axis=-1)
+        
+        c_star = np.reshape(np.take_along_axis(c,max_selector,axis=-1),m.shape)
+        d_star = np.reshape(np.take_along_axis(d,max_selector,axis=-1),m.shape)
+        a_star = np.reshape(np.take_along_axis(a,max_selector,axis=-1),m.shape)
+        v_star = np.reshape(np.take_along_axis(v,max_selector,axis=-1),m.shape)
+        vPm_star = np.reshape(np.take_along_axis(vPm,max_selector,axis=-1),
+                              m.shape)
+        vPn_star = np.reshape(np.take_along_axis(vPn,max_selector,axis=-1),
+                              m.shape)
         
         solution = {'cFunc': c_star, 'dFunc': d_star, 'aFunc': a_star, 
                     'vFunc': v_star, 'vPmFunc': vPm_star, 'vPnFunc': vPn_star,
