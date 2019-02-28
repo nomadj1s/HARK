@@ -4019,10 +4019,9 @@ def main():
      
     yPath = np.array([1,1,1,1])
     SolveSimulation(1,yPath,.95,'low',0.1)
-    yPath = np.array([2,2,2,2])
-    SolveSimulation(2,yPath,.95,'hi',0.1)
-        
     
+    yPath2 = np.array([2,2,2,2])
+    SolveSimulation(2,yPath2,.95,'hi',0.1)
         
 if __name__ == '__main__':
     main()
