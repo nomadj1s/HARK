@@ -2471,11 +2471,206 @@ class ConsIRAPFinitial(HARKobject):
         '''
         r = self.Rira
         ra = self.Rsave
-        solN = self.ConsIRAnext(yN + ra*a,r*(w - a))
-        vPm = solN['vPmFunc']
-        vPn = solN['vPnFunc']
+        #g = self.CRRA
         
-        astar = ra*vPm - r*vPn
+        #solN = self.ConsIRAnext(yN + ra*a,r*(w - a))
+        #vPn = solN['vPnFunc']
+        #cN = solN['cFunc']
+        
+        astar = ra*self.ConsIRAnext(yN + ra*a,r*(w - a))['vPmFunc'] -\
+                r*self.ConsIRAnext(yN + ra*a,r*(w - a))['vPnFunc']
+        
+        return astar
+    
+    def __call__(self,w):
+        '''
+        Evaluate optimal initial asset allocation in the initial period.
+        
+        Parameters
+        ----------
+        w : float or np.array
+            Initial assets in.
+        
+        Returns
+        -------
+        solution['cFunc'] : float or np.array
+            Consumption in current period.
+        solution['dFunc'] : float or np.array
+            Withdrawal in current period.
+        solution['aFunc'] : float or np.array
+            Liquid saving in current period.
+        solution['vFunc'] : float or np.array
+            Value function in current period.
+        solution['vPmFunc'] : float or np.array
+            Marginal value function wrt m in current period.
+        solution['vPnFunc'] : float or np.array
+            Marginal value function wrt n in current period.
+        '''
+        # convert to np.arrays
+        w = np.atleast_1d(w).astype(np.float)
+        yN = np.atleast_1d(self.yN).astype(np.float)
+        
+        # Ensure comformability between w and yN        
+        if yN.shape != w.shape:
+            yN = np.full_like(w,yN.item(0))
+        
+        b = self.DiscFac
+        r = self.Rira
+        ra = self.Rsave
+        
+        s = 3 # total possible states in this period
+        
+        # create placeholders with arrays of dimension s, for each element of w
+        a = np.reshape(np.repeat(w,s,axis=-1),w.shape + (s,)) # liquid savings
+        c = np.full_like(a,0.0) # consumption
+        d = np.full_like(a,0.0) # deposit/withdrawal
+        v = np.full_like(a,-np.inf) # value function, initiated at -inf
+        vPm = np.full_like(a,1.0) # marginal value wrt m
+        vPn = np.full_like(a,0.0) # marginal value wrt n
+        
+        # Corner solution with all assets placed in liquid account
+        liq = (ra*self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))['vPmFunc'] >
+               r*self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))['vPnFunc'])
+        
+        c[...,0][liq] = 0.0
+        d[...,0][liq] = 0.0
+        a[...,0][liq] = w[liq]
+        v[...,0][liq] = b*self.ConsIRAnext(yN[liq] + ra*w[liq],
+                                           np.zeros(w[liq].shape))['vFunc']
+        vPm[...,0][liq] = ra*b*self.ConsIRAnext(yN[liq] +
+                                                ra*w[liq],
+                                                np.zeros(w[liq].shape)
+                                                )['vPmFunc']
+        vPn[...,0][liq] = 0.0
+        
+        # Internal solution with positive liquid and illiquid savings
+        inter = ((ra*self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))['vPmFunc'] 
+                  <= 
+                  r*self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))['vPnFunc']) &
+                 (ra*self.ConsIRAnext(yN,r*w)['vPmFunc'] >=
+                  r*self.ConsIRAnext(yN,r*w)['vPnFunc']))
+        
+        c[...,1][inter] = 0.0
+        #a[...,1][inter] = fp(self.aFOC,np.full_like(w[inter],0.0),
+        #                     args=(w[inter],yN[inter]))
+        a[...,1][inter] = br(self.aFOC,0,w[inter],args=(w[inter],yN[inter]))
+        d[...,1][inter] = w[inter] - a[...,1][inter]
+        v[...,1][inter] = b*self.ConsIRAnext(yN[inter] + ra*a[...,1][inter],
+                                             r*(w[inter]-d[...,1][inter])
+                                             )['vFunc']
+        vPm[...,1][inter] = b*self.ConsIRAnext(yN[inter] + ra*a[...,1][inter],
+                                             r*(w[inter]-d[...,1][inter])
+                                             )['vPmFunc']
+        vPn[...,1][inter] = 0.0
+        
+        # Corner solution with all asstes placed in illiquid account
+        cap = (ra*self.ConsIRAnext(yN,r*w)['vPmFunc'] <
+                  r*self.ConsIRAnext(yN,r*w)['vPnFunc'])
+        
+        c[...,2][cap] = 0.0
+        a[...,2][cap] = 0.0
+        d[...,2][cap] = w[cap]
+        v[...,2][cap] = b*self.ConsIRAnext(yN[cap],r*w[cap])['vFunc']
+        vPm[...,1][cap] = b*self.ConsIRAnext(yN[cap],r*w[cap])['vPmFunc']
+        vPn[...,1][cap] = 0.0
+
+        # Find index of max utility among valid solutions
+        max_state = np.argmax(v,axis=-1)
+        
+        # Create tuple of common dimensions for indexing max values
+        max_dim = np.ogrid[[slice(i) for i in max_state.shape]]
+        
+        # Select elements from each array, based on index of max value
+        c_star = c[tuple(max_dim) + (max_state,)]
+        d_star = d[tuple(max_dim) + (max_state,)]
+        a_star = a[tuple(max_dim) + (max_state,)]
+        v_star = v[tuple(max_dim) + (max_state,)]
+        vPm_star = vPm[tuple(max_dim) + (max_state,)]
+        vPn_star = vPn[tuple(max_dim) + (max_state,)]
+        
+        solution = {'cFunc': c_star, 'dFunc': d_star, 'aFunc': a_star, 
+                    'vFunc': v_star, 'vPmFunc': vPm_star, 'vPnFunc': vPn_star,
+                    'max_state': max_state}
+        
+        if self.output == 'all':
+            return solution
+        else:
+            return solution[self.output]
+        
+class ConsIRAPFinitial0(HARKobject):
+    '''
+    Solution for IRA consumer model with perfect foresight, in initial period
+    where agent doesn't consume, but only allocates resources to illiquid
+    and liquid accounts.
+    '''
+    distance_criteria = ['NextIncome','DiscFac','CRRA','Rsave',
+                         'Rira','ConsIRAnext']
+    
+    def __init__(self,NextIncome,DiscFac,CRRA,Rsave,Rira,ConsIRAnext,
+                 output='all'):
+        '''
+        Constructor for period 0 solution.
+        
+        Parameters
+        ----------
+        NextIncome : float or np.array
+            Income in the next period.
+        DiscFac : float
+            Intertemporal discount factor for future utility.
+        CRRA : float
+            Coefficient of relative risk aversion.
+        Rsave: float
+            Interest factor on liquid assets between this period and the 
+            succeeding period when assets are positive.
+        Rira:  float
+            Interest factor on illiquid assets between this period and the 
+            succeeding period.
+        ConsIRAnext : function
+            Returns optimal c,d,a and value function and marginal value
+            function from the next period.
+        output : string
+            Whether consumption, deposit, or value function is output.
+        
+        Returns
+        -------
+        None
+        '''
+        
+        self.NextIncome     = NextIncome
+        self.DiscFac        = DiscFac
+        self.CRRA           = CRRA
+        self.Rsave          = Rsave
+        self.Rira           = Rira
+        self.yN             = NextIncome
+        self.ConsIRAnext    = deepcopy(ConsIRAnext)
+        self.output         = output
+        
+    def aFOC(self,a,w,yN):
+        '''
+        Evaluate expression for a, derived from the FOC for a in initial 
+        period. Satisfies the budget constraint: w = a + d. Not a closed form 
+        solution, since it also depends on a and the value function of the next
+        period.
+        
+        Parameters
+        ----------
+        a : float or np.array
+            Liquid savings in period 0.
+        w : float or np.array
+            Initial assets in period 0.
+        yN : float or np.array
+            Income next period
+            
+        Returns
+        -------
+        astar : float or np.array
+            Optimal a at an interior solution.
+        '''
+        r = self.Rira
+        ra = self.Rsave
+        solN = self.ConsIRAnext(yN + ra*a,r*(w - a))
+        
+        astar = ra*solN['vPmFunc'] - r*solN['vPnFunc']
         
         return astar
     
@@ -2544,23 +2739,24 @@ class ConsIRAPFinitial(HARKobject):
                  (ra*solCap['vPmFunc'] >= r*solCap['vPnFunc']))
         
         c[...,1][inter] = 0.0
-        a[...,1][inter] = br(self.aFOC,np.zeros(w[inter].shape),w[inter],
-                          args=(w[inter],yN[inter]))
+        a[...,1][inter] = br(self.aFOC,0,w[inter],args=(w[inter],yN[inter]))
         d[...,1][inter] = w[inter] - a[...,1][inter]
+        
         solInter = self.ConsIRAnext(yN[inter] + ra*a[...,1][inter],
                                     r*(w[inter]-d[...,1][inter]))
+        
         v[...,1][inter] = b*solInter['vFunc']
-        vPm[...,1][inter] = b*solInter['vPmFunc']
+        vPm[...,1][inter] = ra*b*solInter['vPmFunc']
         vPn[...,1][inter] = 0.0
         
-        # Corner solution with all asstes placed in illiquid account        
-        cap = (ra*solCap['vPmFunc'] < r*solCap['vPnFunc'])
+        # Corner solution with all asstes placed in illiquid account
+        cap = ra*solCap['vPmFunc'] < r*solCap['vPnFunc']
         
         c[...,2][cap] = 0.0
         a[...,2][cap] = 0.0
         d[...,2][cap] = w[cap]
         v[...,2][cap] = b*solCap['vFunc'][cap]
-        vPm[...,1][cap] = b*solCap['vPmFunc'][cap]
+        vPm[...,1][cap] = r*b*solCap['vPnFunc'][cap]
         vPn[...,1][cap] = 0.0
 
         # Find index of max utility among valid solutions
@@ -2585,7 +2781,6 @@ class ConsIRAPFinitial(HARKobject):
             return solution
         else:
             return solution[self.output]
-
 
 # ====================================
 # === Perfect foresight IRA model ===
