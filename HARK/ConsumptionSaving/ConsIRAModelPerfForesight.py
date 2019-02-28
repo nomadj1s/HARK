@@ -21,6 +21,7 @@ from copy import copy, deepcopy
 import numpy as np
 from scipy.optimize import basinhopping
 from scipy.optimize import fixed_point as fp
+from scipy.optimize import brentq as br
 from time import clock, time
 import multiprocessing as mp
 from pathos.multiprocessing import ProcessPool
@@ -2470,12 +2471,14 @@ class ConsIRAPFinitial(HARKobject):
         '''
         r = self.Rira
         ra = self.Rsave
-        g = self.CRRA
-        vPn = self.ConsIRAnext(yN + ra*a,r*(w - a))['vPnFunc']
-        aN = self.ConsIRAnext(yN + ra*a,r*(w - a))['aFunc']
-        dN = self.ConsIRAnext(yN + ra*a,r*(w - a))['dFunc']
+        #g = self.CRRA
         
-        astar = ((r*vPn)**(-1.0/g) - yN + aN + dN)/ra
+        #solN = self.ConsIRAnext(yN + ra*a,r*(w - a))
+        #vPn = solN['vPnFunc']
+        #cN = solN['cFunc']
+        
+        astar = ra*self.ConsIRAnext(yN + ra*a,r*(w - a))['vPmFunc'] -\
+                r*self.ConsIRAnext(yN + ra*a,r*(w - a))['vPnFunc']
         
         return astar
     
@@ -2548,8 +2551,9 @@ class ConsIRAPFinitial(HARKobject):
                   r*self.ConsIRAnext(yN,r*w)['vPnFunc']))
         
         c[...,1][inter] = 0.0
-        a[...,1][inter] = fp(self.aFOC,np.full_like(w[inter],0.0),
-                             args=(w[inter],yN[inter]))
+        #a[...,1][inter] = fp(self.aFOC,np.full_like(w[inter],0.0),
+        #                     args=(w[inter],yN[inter]))
+        a[...,1][inter] = br(self.aFOC,0,w[inter],args=(w[inter],yN[inter]))
         d[...,1][inter] = w[inter] - a[...,1][inter]
         v[...,1][inter] = b*self.ConsIRAnext(yN[inter] + ra*a[...,1][inter],
                                              r*(w[inter]-d[...,1][inter])
@@ -3959,7 +3963,7 @@ def main():
     
     # Plot consumption functions beside each other
     
-    def SolveSimulation(w0,yL,beta,graph_lab,t):
+    def solveSimulation(w0,yL,beta,t,graph_lab):
         p4 = ConsIRAPFterminal(g)
         p3 = ConsIRAPFnoPen(yL[3],beta,g,ra,r,dMax,p4)
         p2 = ConsIRAPFpen(yL[2],beta,g,ra,r,t,dMax,p3)
@@ -3979,7 +3983,7 @@ def main():
         n[2] = r*(s1['dFunc'] + n[1])
         s2 = p2(m[2],n[2])
         m[3] = yL[2] + ra*s2['aFunc']
-        n[3] = r*(s2['dFunc'] + n[3])
+        n[3] = r*(s2['dFunc'] + n[2])
         s3 = p3(m[3],n[3])
         m[4] = yL[3] + ra*s3['aFunc']
         n[4] = r*(s3['dFunc'] + n[3])
@@ -3987,41 +3991,65 @@ def main():
         
         X = [s0,s1,s2,s3,s4]
         
-        c = np.array([x['cFunc'] for x in X],dtype=np.float)
-        d = np.array([x['dFunc'] for x in X],dtype=np.float)
+        a = np.array([x['aFunc'][0] for x in X],dtype=np.float)
+        c = np.array([x['cFunc'][0] for x in X],dtype=np.float)
+        d = np.array([x['dFunc'][0] for x in X],dtype=np.float)
         y = np.array([w0,yL[0],yL[1],yL[2],yL[3]])
         
+        # End of Period Illiquid  Assets
+        b = n + d
+        
+        # Deposits and Withdrawals
+        dep = np.maximum(d,0)
+        withdr = -np.minimum(d,0)
+        
+        
         # Plot Assets
-        t = np.arange(5)
-        plt.plot(t,n,'C1',label='Illiquid Assets')
-        plt.plot(t,m,'C0--',label='Liquid Assets')
+        tvar = np.arange(5)
+        plt.plot(tvar,b,'C1',label='Illiquid Assets')
+        plt.plot(tvar,a,'C0--',label='Liquid Assets')
         plt.xlabel('time')
         plt.ylabel('balance')
-        plt.title('Life Cycle Asset Accumulation, beta =' + str(beta))
+        plt.title('Asset Accumulation, beta=' + str(beta) +', w0=' + str(w0) +
+                  ', t=' + str(t))
         plt.legend()
         plt.grid()
         plt.xticks(np.array([0,1,2,3,4]))
-        plt.savefig('IRA_Results/IRAPFAssets' + graph_lab + '.png')
+        #plt.savefig('IRA_Results/IRAPFassets_' + graph_lab + '.png')
         plt.show()
         
-        #Plot Consumption, Deposits, and Income
-        plt.plot(t,c,'C1',label='Consumption')
-        plt.plot(t,d,'C2',label='Deposits/Withdrawals')
-        plt.plot(t,y,'C0--',label='Income')
+        # Plot Withdrawals and Deposits
+        plt.plot(tvar,dep,'C1',label='Deposits')
+        plt.plot(tvar,withdr,'C0--',label='Withdrawals')
         plt.xlabel('time')
-        plt.ylabel('Consumption/Income')
-        plt.title('Life Cycle Income and Consumption, beta =' + str(beta))
+        plt.ylabel('balance')
+        plt.title('Deposits/Withdrawals, beta=' + str(beta) +', w0=' + str(w0) 
+                  + ', t=' + str(t))
         plt.legend()
         plt.grid()
         plt.xticks(np.array([0,1,2,3,4]))
-        plt.savefig('IRA_Results/IRAPFCons' + graph_lab + '.png')
+        #plt.savefig('IRA_Results/IRAPFwithdr_' + graph_lab + '.png')
+        plt.show()
+        
+        #Plot Consumption and Income
+        plt.plot(tvar[1:],c[1:],'C1',label='Consumption')
+        plt.plot(tvar[1:],y[1:],'C0--',label='Income')
+        plt.xlabel('time')
+        plt.ylabel('Consumption/Income')
+        plt.title('Income/Consumption, beta=' + str(beta) +', w0=' + str(w0) 
+                  + ', t=' + str(t))
+        plt.legend()
+        plt.grid()
+        plt.xticks(tvar[1:])
+        plt.yticks(np.array([0,.5,1,1.5,2]))
+        #plt.savefig('IRA_Results/IRAPFcons_' + graph_lab + '.png')
         plt.show()
      
-    yPath = np.array([1,1,1,1])
-    SolveSimulation(1,yPath,.95,'low',0.1)
+    #yPath = np.array([1,1,1,1])
+    #solveSimulation(1,yPath,.95,'low')
     
-    yPath2 = np.array([2,2,2,2])
-    SolveSimulation(2,yPath2,.95,'hi',0.1)
+    #yPath2 = np.array([2,2,2,2])
+    #SolveSimulation(2,yPath2,.95,'hi',0.1)
         
 if __name__ == '__main__':
     main()
