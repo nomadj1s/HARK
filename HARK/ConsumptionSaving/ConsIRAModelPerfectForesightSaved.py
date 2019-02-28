@@ -1174,7 +1174,7 @@ class ConsIRAterminal(HARKobject):
         v = utility(c,gam=self.CRRA)
         vPm = utilityP(c,gam=self.CRRA)
         vPn = utilityP(c,gam=self.CRRA)
-        max_state = m*0
+        max_state = m.astype(np.int)*0
         
         solution = {'cFunc': c, 'dFunc': d, 'aFunc': a, 'vFunc': v, 
                     'vPmFunc': vPm, 'vPnFunc': vPn, 'max_state': max_state}
@@ -1562,7 +1562,7 @@ class ConsIRAPFnoPen(HARKobject):
         n = np.atleast_1d(n).astype(np.float)
         yN = np.atleast_1d(self.yN).astype(np.float)
 
-                # Ensure comformability between m, n, and yN
+        # Ensure comformability between m, n, and yN
         if m.shape != n.shape:
             if m.size >= n.size:
                 n = np.full_like(m,n.item(0))
@@ -1582,10 +1582,11 @@ class ConsIRAPFnoPen(HARKobject):
         s = 4 # total possible states in this period
         
         # create placeholders with arrays of dimension s, for each element of m
-        c = np.reshape(np.repeat(m,s,axis=-1),m.shape + (s,)) # consumption
+        # consumption
+        c = np.reshape(np.repeat(m,s,axis=-1),m.shape + (s,))
         d = np.full_like(c,0.0) # deposit/withdrawal
         a = np.full_like(c,0.0) # liquid savings
-        v = np.full_like(c,-np.inf) # value function, initiated at -inf
+        v = np.full_like(c,-np.inf) # value function, non-solutions = -inf
         vPm = np.full_like(c,1.0) # marginal value wrt m
         vPn = np.full_like(c,1.0) # marginal value wrt n
         
@@ -1655,10 +1656,9 @@ class ConsIRAPFnoPen(HARKobject):
         # Find index of max utility among valid solutions
         max_state = np.argmax(v,axis=-1)
         
-        # Create tuple of common dimensions for indexing max values
-        max_dim = np.ogrid[[slice(i) for i in max_state.shape]]
+        # Create tuple of dimensions for indexing max values
+        max_dim = np.ogrid[[slice(i) for i in max_state]]
         
-        # Select elements from each array, based on index of max value
         c_star = c[tuple(max_dim) + (max_state,)]
         d_star = d[tuple(max_dim) + (max_state,)]
         a_star = a[tuple(max_dim) + (max_state,)]
@@ -2517,7 +2517,7 @@ class ConsIRAPFpen(HARKobject):
         n = np.atleast_1d(n).astype(np.float)
         yN = np.atleast_1d(self.yN).astype(np.float)
 
-        # Ensure comformability between m, n, and yN
+                # Ensure comformability between m, n, and yN
         if m.shape != n.shape:
             if m.size >= n.size:
                 n = np.full_like(m,n.item(0))
@@ -2538,10 +2538,11 @@ class ConsIRAPFpen(HARKobject):
         s = 7 # total possible states in this period
         
         # create placeholders with arrays of dimension s, for each element of m
-        c = np.reshape(np.repeat(m,s,axis=-1),m.shape + (s,)) # consumption
+        # consumption
+        c = np.reshape(np.repeat(m,s,axis=-1),m.shape + (s,))
         d = np.full_like(c,0.0) # deposit/withdrawal
         a = np.full_like(c,0.0) # liquid savings
-        v = np.full_like(c,-np.inf) # value function, initiated at -inf
+        v = np.full_like(c,-np.inf) # value function
         vPm = np.full_like(c,1.0) # marginal value wrt m
         vPn = np.full_like(c,1.0) # marginal value wrt n
         
@@ -2658,10 +2659,9 @@ class ConsIRAPFpen(HARKobject):
         # Find index of max utility among valid solutions
         max_state = np.argmax(v,axis=-1)
         
-        # Create tuple of common dimensions for indexing max values
-        max_dim = np.ogrid[[slice(i) for i in max_state.shape]]
+        # Create tuple of dimensions for indexing max values
+        max_dim = np.ogrid[[slice(i) for i in max_state]]
         
-        # Select elements from each array, based on index of max value
         c_star = c[tuple(max_dim) + (max_state,)]
         d_star = d[tuple(max_dim) + (max_state,)]
         a_star = a[tuple(max_dim) + (max_state,)]
@@ -2855,8 +2855,8 @@ class ConsIRAPFinitial(HARKobject):
     where agent doesn't consume, but only allocates resources to illiquid
     and liquid accounts.
     '''
-    distance_criteria = ['NextIncome','DiscFac','CRRA','Rsave',
-                         'Rira','ConsIRAnext']
+    distance_criteria = ['period','NextIncome','DiscFac','CRRA','Rsave',
+                         'Rira','ConsIRA5Period1']
     
     def __init__(self,NextIncome,DiscFac,CRRA,Rsave,Rira,ConsIRAnext,
                  output='all'):
@@ -2910,8 +2910,6 @@ class ConsIRAPFinitial(HARKobject):
             Liquid savings in period 0.
         w : float or np.array
             Initial assets in period 0.
-        yN : float or np.array
-            Income next period
             
         Returns
         -------
@@ -2936,7 +2934,7 @@ class ConsIRAPFinitial(HARKobject):
         Parameters
         ----------
         w : float or np.array
-            Initial assets in.
+            Initial assets in period 0.
         
         Returns
         -------
@@ -2976,35 +2974,31 @@ class ConsIRAPFinitial(HARKobject):
         vPn = np.full_like(a,0.0) # marginal value wrt n
         
         # Corner solution with all assets placed in liquid account
-        liq = (ra*self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))['vPmFunc'] >
-               r*self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))['vPnFunc'])
+        liq = (ra*self.ConsIRAnext(yN + ra*w,0.0)['vPmFunc'] >
+               r*self.ConsIRAnext(yN + ra*w,0.0)['vPnFunc'])
         
         c[...,0][liq] = 0.0
         d[...,0][liq] = 0.0
         a[...,0][liq] = w[liq]
-        v[...,0][liq] = b*self.ConsIRAnext(yN[liq] + ra*w[liq],
-                                           np.zeros(w[liq].shape))['vFunc']
+        v[...,0][liq] = b*self.ConsIRAnext(yN[liq] + ra*w[liq],0.0)['vFunc']
         vPm[...,0][liq] = ra*b*self.ConsIRAnext(yN[liq] +
-                                                ra*w[liq],
-                                                np.zeros(w[liq].shape)
-                                                )['vPmFunc']
+                                                ra*w[liq],0.0)['vPmFunc']
         vPn[...,0][liq] = 0.0
         
         # Internal solution with positive liquid and illiquid savings
-        inter = ((ra*self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))['vPmFunc'] 
-                  <= 
-                  r*self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))['vPnFunc']) &
+        inter = ((ra*self.ConsIRAnext(yN + ra*w,0.0)['vPmFunc'] <=
+                  r*self.ConsIRAnext(yN + ra*w,0.0)['vPnFunc']) &
                  (ra*self.ConsIRAnext(yN,r*w)['vPmFunc'] >=
                   r*self.ConsIRAnext(yN,r*w)['vPnFunc']))
         
         c[...,1][inter] = 0.0
-        a[...,1][inter] = fp(self.aFOC,np.full_like(w[inter],0.0),
-                             args=(w[inter],yN[inter]))
+        a[...,1][inter] = fp(self.aFOC,np.full_like(w,0.0),args=(w[inter],
+                                                                 yN[inter]))
         d[...,1][inter] = w[inter] - a[...,1][inter]
-        v[...,1][inter] = b*self.ConsIRAnext(yN[inter] + ra*a[...,1][inter],
+        v[...,1][inter] = b*self.ConsIRAnext(yN + ra*a[...,1][inter],
                                              r*(w[inter]-d[...,1][inter])
                                              )['vFunc']
-        vPm[...,1][inter] = b*self.ConsIRAnext(yN[inter] + ra*a[...,1][inter],
+        vPm[...,1][inter] = b*self.ConsIRAnext(yN + ra*a[...,1][inter],
                                              r*(w[inter]-d[...,1][inter])
                                              )['vPmFunc']
         vPn[...,1][inter] = 0.0
@@ -3016,10 +3010,11 @@ class ConsIRAPFinitial(HARKobject):
         c[...,2][cap] = 0.0
         a[...,2][cap] = 0.0
         d[...,2][cap] = w[cap]
-        v[...,2][cap] = b*self.ConsIRAnext(yN[cap],r*w[cap])['vFunc']
-        vPm[...,1][cap] = b*self.ConsIRAnext(yN[cap],r*w[cap])['vPmFunc']
+        v[...,2][cap] = b*self.ConsIRAnext(yN,r*w[cap])['vFunc']
+        vPm[...,1][cap] = b*self.ConsIRAnext(yN,r*w[cap])['vPmFunc']
         vPn[...,1][cap] = 0.0
 
+            
         # Find index of max utility among valid solutions
         max_state = np.argmax(v,axis=-1)
         
