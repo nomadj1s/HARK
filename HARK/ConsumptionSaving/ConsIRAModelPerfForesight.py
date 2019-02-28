@@ -647,7 +647,7 @@ class ConsIRA5Period4(HARKobject):
         else:
             return solution[self.output]
         
-class ConsIRAterminal(HARKobject):
+class ConsIRAPFterminal(HARKobject):
     '''
     Closed form solution for 5-period IRA consumer with perfect foresight.
     Solution for last period.
@@ -3911,54 +3911,117 @@ def main():
     dMax = .5
     t = .1
     
-    p4 = ConsIRA5Period4(g)
-    p4a = ConsIRAterminal(g)
-    p3 = ConsIRA5Period3(y,b,g,ra,r,dMax,p4)
-    p3a = ConsIRAPFnoPen(y,b,g,ra,r,dMax,p4a)
-    p2 = ConsIRA5Period2(y,b,g,ra,r,t,dMax,p3)
-    p2a = ConsIRAPFpen(y,b,g,ra,r,t,dMax,p3a)
-    p1 = ConsIRA5Period1(y,b,g,ra,r,t,dMax,p2)
-    p1a = ConsIRAPFpen(y,b,g,ra,r,t,dMax,p2a)
-    p0 = ConsIRA5Period0(y,b,g,ra,r,p1)
-    p0a = ConsIRAPFinitial(y,b,g,ra,r,p1a)
-    
-    
-    mRange = np.arange(0.5,12.0,0.5)
-    c = {}
-    c['4'] = np.array([p4(m,0.0)['cFunc'] for m in mRange])
-    c['3'] = np.array([p3(m,0.0)['cFunc'] for m in mRange])
-    c['2'] = np.array([p2(m,0.0)['cFunc'] for m in mRange])
-    c['1'] = np.array([p1(m,0.0)['cFunc'] for m in mRange])
-    #c['0'] = np.array([p0(m)['aFunc'] for m in mRange])
-    
-    ca = {}
-    ca['4'] = np.array([p4a(m,0.0)['cFunc'] for m in mRange])
-    ca['3'] = np.array([p3a(m,0.0)['cFunc'] for m in mRange])
-    ca['2'] = np.array([p2a(m,0.0)['cFunc'] for m in mRange])
-    ca['1'] = np.array([p1a(m,0.0)['cFunc'] for m in mRange])
-    #ca['0'] = np.array([p0a(m)['aFunc'] for m in mRange])
-    
-    def comparePlots(period):
-        x = mRange
-        y1 = c[str(period)]
-        y2 = ca[str(period)]
-        plt.plot(x,y1,'C1',label='Simple Solver')
-        plt.plot(x,y2,'C0--',label='Numpy Solver')
-        plt.xlabel('liquid assets')
-        plt.ylabel('consumption')
-        plt.title('Consumption Functions: Period ' + str(period))
-        plt.legend()
-        plt.grid()
-        plt.show()
-        
-    comparePlots(4)
-    comparePlots(3)
-    comparePlots(2)
-    comparePlots(1)
-    #comparePlots(0)
+#    p4 = ConsIRA5Period4(g)
+#    p4a = ConsIRAPFterminal(g)
+#    p3 = ConsIRA5Period3(y,b,g,ra,r,dMax,p4)
+#    p3a = ConsIRAPFnoPen(y,b,g,ra,r,dMax,p4a)
+#    p2 = ConsIRA5Period2(y,b,g,ra,r,t,dMax,p3)
+#    p2a = ConsIRAPFpen(y,b,g,ra,r,t,dMax,p3a)
+#    p1 = ConsIRA5Period1(y,b,g,ra,r,t,dMax,p2)
+#    p1a = ConsIRAPFpen(y,b,g,ra,r,t,dMax,p2a)
+#    p0 = ConsIRA5Period0(y,b,g,ra,r,p1)
+#    p0a = ConsIRAPFinitial(y,b,g,ra,r,p1a)
+#    
+#    
+#    mRange = np.arange(0.5,12.0,0.5)
+#    c = {}
+#    c['4'] = np.array([p4(m,0.0)['cFunc'] for m in mRange])
+#    c['3'] = np.array([p3(m,0.0)['cFunc'] for m in mRange])
+#    c['2'] = np.array([p2(m,0.0)['cFunc'] for m in mRange])
+#    c['1'] = np.array([p1(m,0.0)['cFunc'] for m in mRange])
+#    c['0'] = np.array([p0(m)['aFunc'] for m in mRange])
+#    
+#    ca = {}
+#    ca['4'] = np.array([p4a(m,0.0)['cFunc'] for m in mRange])
+#    ca['3'] = np.array([p3a(m,0.0)['cFunc'] for m in mRange])
+#    ca['2'] = np.array([p2a(m,0.0)['cFunc'] for m in mRange])
+#    ca['1'] = np.array([p1a(m,0.0)['cFunc'] for m in mRange])
+#    ca['0'] = np.array([p0a(m)['aFunc'] for m in mRange])
+#    
+#    def comparePlots(period):
+#        x = mRange
+#        y1 = c[str(period)]
+#        y2 = ca[str(period)]
+#        plt.plot(x,y1,'C1',label='Simple Solver')
+#        plt.plot(x,y2,'C0--',label='Numpy Solver')
+#        plt.xlabel('liquid assets')
+#        plt.ylabel('consumption')
+#        plt.title('Consumption Functions: Period ' + str(period))
+#        plt.legend()
+#        plt.grid()
+#        plt.show()
+#        
+#    comparePlots(4)
+#    comparePlots(3)
+#    comparePlots(2)
+#    comparePlots(1)
+#    comparePlots(0)
     
     # Plot consumption functions beside each other
     
+    def SolveSimulation(w0,yL,beta,graph_lab,t):
+        p4 = ConsIRAPFterminal(g)
+        p3 = ConsIRAPFnoPen(yL[3],beta,g,ra,r,dMax,p4)
+        p2 = ConsIRAPFpen(yL[2],beta,g,ra,r,t,dMax,p3)
+        p1 = ConsIRAPFpen(yL[1],beta,g,ra,r,t,dMax,p2)
+        p0 = ConsIRAPFinitial(yL[0],beta,g,ra,r,p1)
+        
+        m = np.empty(5,dtype=np.float)
+        n = np.empty(5,dtype=np.float)
+        
+        m[0] = w0
+        n[0] = 0.0
+        s0 = p0(w0)
+        m[1] = yL[0] + ra*s0['aFunc']
+        n[1] = r*s0['dFunc']
+        s1 = p1(m[1],n[1])
+        m[2] = yL[1] + ra*s1['aFunc']
+        n[2] = r*(s1['dFunc'] + n[1])
+        s2 = p2(m[2],n[2])
+        m[3] = yL[2] + ra*s2['aFunc']
+        n[3] = r*(s2['dFunc'] + n[3])
+        s3 = p3(m[3],n[3])
+        m[4] = yL[3] + ra*s3['aFunc']
+        n[4] = r*(s3['dFunc'] + n[3])
+        s4 = p4(m[4],n[4])
+        
+        X = [s0,s1,s2,s3,s4]
+        
+        c = np.array([x['cFunc'] for x in X],dtype=np.float)
+        d = np.array([x['dFunc'] for x in X],dtype=np.float)
+        y = np.array([w0,yL[0],yL[1],yL[2],yL[3]])
+        
+        # Plot Assets
+        t = np.arange(5)
+        plt.plot(t,n,'C1',label='Illiquid Assets')
+        plt.plot(t,m,'C0--',label='Liquid Assets')
+        plt.xlabel('time')
+        plt.ylabel('balance')
+        plt.title('Life Cycle Asset Accumulation, beta =' + str(beta))
+        plt.legend()
+        plt.grid()
+        plt.xticks(np.array([0,1,2,3,4]))
+        plt.savefig('IRA_Results/IRAPFAssets' + graph_lab + '.png')
+        plt.show()
+        
+        #Plot Consumption, Deposits, and Income
+        plt.plot(t,c,'C1',label='Consumption')
+        plt.plot(t,d,'C2',label='Deposits/Withdrawals')
+        plt.plot(t,y,'C0--',label='Income')
+        plt.xlabel('time')
+        plt.ylabel('Consumption/Income')
+        plt.title('Life Cycle Income and Consumption, beta =' + str(beta))
+        plt.legend()
+        plt.grid()
+        plt.xticks(np.array([0,1,2,3,4]))
+        plt.savefig('IRA_Results/IRAPFCons' + graph_lab + '.png')
+        plt.show()
+     
+    yPath = np.array([1,1,1,1])
+    SolveSimulation(1,yPath,.95,'low',0.1)
+    yPath = np.array([2,2,2,2])
+    SolveSimulation(2,yPath,.95,'hi',0.1)
+        
     
         
 if __name__ == '__main__':
