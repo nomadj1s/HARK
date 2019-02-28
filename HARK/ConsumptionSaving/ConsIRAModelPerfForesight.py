@@ -2471,14 +2471,11 @@ class ConsIRAPFinitial(HARKobject):
         '''
         r = self.Rira
         ra = self.Rsave
-        #g = self.CRRA
+        solN = self.ConsIRAnext(yN + ra*a,r*(w - a))
+        vPm = solN['vPmFunc']
+        vPn = solN['vPnFunc']
         
-        #solN = self.ConsIRAnext(yN + ra*a,r*(w - a))
-        #vPn = solN['vPnFunc']
-        #cN = solN['cFunc']
-        
-        astar = ra*self.ConsIRAnext(yN + ra*a,r*(w - a))['vPmFunc'] -\
-                r*self.ConsIRAnext(yN + ra*a,r*(w - a))['vPnFunc']
+        astar = ra*vPm - r*vPn
         
         return astar
     
@@ -2529,49 +2526,41 @@ class ConsIRAPFinitial(HARKobject):
         vPn = np.full_like(a,0.0) # marginal value wrt n
         
         # Corner solution with all assets placed in liquid account
-        liq = (ra*self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))['vPmFunc'] >
-               r*self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))['vPnFunc'])
+        solLiq = self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))
+        
+        liq = (ra*solLiq['vPmFunc'] > r*solLiq['vPnFunc'])
         
         c[...,0][liq] = 0.0
         d[...,0][liq] = 0.0
         a[...,0][liq] = w[liq]
-        v[...,0][liq] = b*self.ConsIRAnext(yN[liq] + ra*w[liq],
-                                           np.zeros(w[liq].shape))['vFunc']
-        vPm[...,0][liq] = ra*b*self.ConsIRAnext(yN[liq] +
-                                                ra*w[liq],
-                                                np.zeros(w[liq].shape)
-                                                )['vPmFunc']
+        v[...,0][liq] = b*solLiq['vFunc'][liq]
+        vPm[...,0][liq] = ra*b*solLiq['vPmFunc'][liq]
         vPn[...,0][liq] = 0.0
         
         # Internal solution with positive liquid and illiquid savings
-        inter = ((ra*self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))['vPmFunc'] 
-                  <= 
-                  r*self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))['vPnFunc']) &
-                 (ra*self.ConsIRAnext(yN,r*w)['vPmFunc'] >=
-                  r*self.ConsIRAnext(yN,r*w)['vPnFunc']))
+        solCap = self.ConsIRAnext(yN,r*w)
+        
+        inter = ((ra*solLiq['vPmFunc'] <= r*solLiq['vPnFunc']) &
+                 (ra*solCap['vPmFunc'] >= r*solCap['vPnFunc']))
         
         c[...,1][inter] = 0.0
-        #a[...,1][inter] = fp(self.aFOC,np.full_like(w[inter],0.0),
-        #                     args=(w[inter],yN[inter]))
-        a[...,1][inter] = br(self.aFOC,0,w[inter],args=(w[inter],yN[inter]))
+        a[...,1][inter] = br(self.aFOC,np.zeros(w[inter].shape),w[inter],
+                          args=(w[inter],yN[inter]))
         d[...,1][inter] = w[inter] - a[...,1][inter]
-        v[...,1][inter] = b*self.ConsIRAnext(yN[inter] + ra*a[...,1][inter],
-                                             r*(w[inter]-d[...,1][inter])
-                                             )['vFunc']
-        vPm[...,1][inter] = b*self.ConsIRAnext(yN[inter] + ra*a[...,1][inter],
-                                             r*(w[inter]-d[...,1][inter])
-                                             )['vPmFunc']
+        solInter = self.ConsIRAnext(yN[inter] + ra*a[...,1][inter],
+                                    r*(w[inter]-d[...,1][inter]))
+        v[...,1][inter] = b*solInter['vFunc']
+        vPm[...,1][inter] = b*solInter['vPmFunc']
         vPn[...,1][inter] = 0.0
         
-        # Corner solution with all asstes placed in illiquid account
-        cap = (ra*self.ConsIRAnext(yN,r*w)['vPmFunc'] <
-                  r*self.ConsIRAnext(yN,r*w)['vPnFunc'])
+        # Corner solution with all asstes placed in illiquid account        
+        cap = (ra*solCap['vPmFunc'] < r*solCap['vPnFunc'])
         
         c[...,2][cap] = 0.0
         a[...,2][cap] = 0.0
         d[...,2][cap] = w[cap]
-        v[...,2][cap] = b*self.ConsIRAnext(yN[cap],r*w[cap])['vFunc']
-        vPm[...,1][cap] = b*self.ConsIRAnext(yN[cap],r*w[cap])['vPmFunc']
+        v[...,2][cap] = b*solCap['vFunc'][cap]
+        vPm[...,1][cap] = b*solCap['vPmFunc'][cap]
         vPn[...,1][cap] = 0.0
 
         # Find index of max utility among valid solutions
@@ -2596,6 +2585,7 @@ class ConsIRAPFinitial(HARKobject):
             return solution
         else:
             return solution[self.output]
+
 
 # ====================================
 # === Perfect foresight IRA model ===
