@@ -3903,7 +3903,7 @@ class IRAConsumerType(IndShockConsumerType):
 def main():
     mystr = lambda number : "{:.4f}".format(number)
     
-    yN = 1
+    y = 1
     b = 1
     g = 2
     ra = 1
@@ -3911,7 +3911,55 @@ def main():
     dMax = .5
     t = .1
     
+    p4 = ConsIRA5Period4(g)
+    p4a = ConsIRAterminal(g)
+    p3 = ConsIRA5Period3(y,b,g,ra,r,dMax,p4)
+    p3a = ConsIRAPFnoPen(y,b,g,ra,r,dMax,p4a)
+    p2 = ConsIRA5Period2(y,b,g,ra,r,t,dMax,p3)
+    p2a = ConsIRAPFpen(y,b,g,ra,r,t,dMax,p3a)
+    p1 = ConsIRA5Period1(y,b,g,ra,r,t,dMax,p2)
+    p1a = ConsIRAPFpen(y,b,g,ra,r,t,dMax,p2a)
+    p0 = ConsIRA5Period0(y,b,g,ra,r,p1)
+    p0a = ConsIRAPFinitial(y,b,g,ra,r,p1a)
+    
+    
+    mRange = np.arange(0.5,12.0,0.5)
+    c = {}
+    c['4'] = np.array([p4(m,0.0)['cFunc'] for m in mRange])
+    c['3'] = np.array([p3(m,0.0)['cFunc'] for m in mRange])
+    c['2'] = np.array([p2(m,0.0)['cFunc'] for m in mRange])
+    c['1'] = np.array([p1(m,0.0)['cFunc'] for m in mRange])
+    #c['0'] = np.array([p0(m)['aFunc'] for m in mRange])
+    
+    ca = {}
+    ca['4'] = np.array([p4a(m,0.0)['cFunc'] for m in mRange])
+    ca['3'] = np.array([p3a(m,0.0)['cFunc'] for m in mRange])
+    ca['2'] = np.array([p2a(m,0.0)['cFunc'] for m in mRange])
+    ca['1'] = np.array([p1a(m,0.0)['cFunc'] for m in mRange])
+    #ca['0'] = np.array([p0a(m)['aFunc'] for m in mRange])
+    
+    def comparePlots(period):
+        x = mRange
+        y1 = c[str(period)]
+        y2 = ca[str(period)]
+        plt.plot(x,y1,'C1',label='Simple Solver')
+        plt.plot(x,y2,'C0--',label='Numpy Solver')
+        plt.xlabel('liquid assets')
+        plt.ylabel('consumption')
+        plt.title('Consumption Functions: Period ' + str(period))
+        plt.legend()
+        plt.grid()
+        plt.show()
+        
+    comparePlots(4)
+    comparePlots(3)
+    comparePlots(2)
+    comparePlots(1)
+    #comparePlots(0)
+    
+    # Plot consumption functions beside each other
+    
     
         
-#if __name__ == '__main__':
-#    main()
+if __name__ == '__main__':
+    main()
