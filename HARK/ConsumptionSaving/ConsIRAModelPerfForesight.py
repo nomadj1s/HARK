@@ -1934,7 +1934,7 @@ class ConsIRAPFpen(HARKobject):
         
         return foc
     
-    def dFOC(self,m,n,yN):
+    def dFOC(self,d,m,n,yN):
         '''
         Evaluate expression for d, derived from the FOC for d in period 1 at
         an interior solution when making a deposit. Not a closed form 
@@ -1959,21 +1959,12 @@ class ConsIRAPFpen(HARKobject):
         '''
         r = self.Rira
         b = self.DiscFac
-    
-        def foc(d,mm,nn,yy):
-            vPn = self.ConsIRAnext(yy,r*(nn + d))['vPnFunc']
-            uP = utilityP(mm - d,gam=self.CRRA)
+        vPn = self.ConsIRAnext(yN,r*(n + d))['vPnFunc']
+        uP = utilityP(m - d,gam=self.CRRA)
         
-            foc = uP - r*b*vPn
+        foc = uP - r*b*vPn
         
-            return foc
-        
-        def scalarMax(mm,nn,yy):
-            return br(foc,0.0,mm - np.nextafter(0,1),args=(mm,nn,yy))
-        
-        vectorMax = np.vectorize(scalarMax)
-        
-        return vectorMax(m,n,yN)
+        return foc
     
     def aKinkFOC(self,a,m,n,yN):
         '''
@@ -2007,10 +1998,9 @@ class ConsIRAPFpen(HARKobject):
         
         return foc
     
-    def aFOC(self,m,n,yN):
+    def aFOC(self,a,m,n,yN):
         '''
-        Evaluate the FOC for a when illiquid savings are capped. Return
-        optimal a.
+        Evaluate the FOC for a when illiquid savings are capped.
         
         Parameters
         ----------
@@ -2032,21 +2022,12 @@ class ConsIRAPFpen(HARKobject):
         ra = self.Rsave
         b = self.DiscFac
         dMax = self.MaxIRA
+        vPm = self.ConsIRAnext(yN + ra*a,r*(n+dMax))['vPmFunc']
+        uP = utilityP(m - a - dMax,gam=self.CRRA)
         
-        def foc(a,mm,nn,yy):
-            vPm = self.ConsIRAnext(yy + ra*a,r*(nn+dMax))['vPmFunc']
-            uP = utilityP(mm - a - dMax,gam=self.CRRA)
+        foc = uP - ra*b*vPm
         
-            foc = uP - ra*b*vPm
-        
-            return foc
-        
-        def scalarMax(mm,nn,yy):
-            return br(foc,0.0,mm - dMax - np.nextafter(0,1),args=(mm,nn,yy))
-        
-        vectorMax = np.vectorize(scalarMax)
-        
-        return vectorMax(m,n,yN)
+        return foc
     
     def __call__(self,m,n):
         '''
