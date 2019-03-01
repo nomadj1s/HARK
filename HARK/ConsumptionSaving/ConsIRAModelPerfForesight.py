@@ -2377,7 +2377,13 @@ class ConsIRA5Period0(HARKobject):
         a1 = self.ConsIRA5Period1(y1 + ra*a,r*(w - a))['aFunc']
         d1 = self.ConsIRA5Period1(y1 + ra*a,r*(w - a))['dFunc']
         
-        astar = ((r/ra*vPn)**(-1.0/g) - y1 + a1 + d1)/ra
+        t = 0.0
+        #if hasattr(self.ConsIRA5Period1,'PenIRA'):
+        #    t = self.ConsIRA5Period1.PenIRA
+        # This line is necessary for the solution to be correct, but breaks
+        # the model.
+        
+        astar = ((r/ra*vPn)**(-1.0/g) - y1 + a1 + (1.0-t)*d1)/ra
         
         return astar
     
@@ -3997,7 +4003,7 @@ def main():
     p0a = ConsIRAPFinitial(y,b,g,ra,r,p1a)
     
     
-    mRange = np.arange(0.5,12.0,0.5)
+    mRange = np.arange(2.0,8,1)
     c = {}
     c['4'] = np.array([p4(m,0.0)['cFunc'] for m in mRange])
     c['3'] = np.array([p3(m,0.0)['cFunc'] for m in mRange])
