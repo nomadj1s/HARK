@@ -1538,7 +1538,7 @@ class IRAConsumerType(IndShockConsumerType):
         if self.bXtraCount == 0:
             self.bXtraGrid = np.array([])
         else:
-            bgrid = HARKobject
+            bgrid = HARKobject()
             bgrid.aXtraMin = self.bXtraMin
             bgrid.aXtraMax = self.bXtraMax
             bgrid.aXtraCount = self.bXtraCount

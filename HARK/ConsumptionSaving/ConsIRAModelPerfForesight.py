@@ -586,8 +586,8 @@ class TerminalValueFunc2D(HARKobject):
         
 class ConsIRAPFterminal(HARKobject):
     '''
-    Closed form solution for 5-period IRA consumer with perfect foresight.
-    Solution for last period.
+    Closed form solution for IRA consumer with perfect foresight. Solution for 
+    last period.
     '''
     distance_criteria = ['CRRA','PenIRA']
     
@@ -1593,8 +1593,8 @@ class ConsIRAPFSolver(HARKobject):
     A class for solving a period of a perfect foresight consumption-saving 
     problem, with an illiquid and liquid account. 
     '''
-    def __init__(self,solution_next,Income,DiscFac,CRRA,Rsave,Rira,PenIRA,
-                 MaxIRA,DistIRA):
+    def __init__(self,solution_next,NextIncome,DiscFac,CRRA,Rsave,Rira,PenIRA,
+                 MaxIRA,DistIRA,InitialProblem):
         '''
         Constructor for solver for prefect foresight consumption-saving
         problem with liquid and IRA-like illiquid savings account.
@@ -1603,8 +1603,8 @@ class ConsIRAPFSolver(HARKobject):
         ----------
         solution_next : ConsumerSolution
             The solution to next period's one period problem.
-        Income : float
-            Income for this period
+        NextIncome : float
+            Income for the next period (known with certainty)
         DiscFac : float
             Intertemporal discount factor for future utility.
         CRRA : float
@@ -1616,13 +1616,16 @@ class ConsIRAPFSolver(HARKobject):
             Interest factor on illiquid assets between this period and the 
             succeeding period.
         PenIRA: float
-            Penalty for early withdrawals (d < 0) from the illiqui account, 
+            Penalty for early withdrawals (d < 0) from the illiquid account, 
             i.e. before t = T_ira.
         MaxIRA: float
             Maximum allowable IRA deposit, d <= MaxIRA
         DistIRA: float or None
             Number of periods between current period and T_ira, i.e. T_ira - t.
             If DistIRA == None, T_ira > T_cycle, i.e. no expiration.
+        InitialProblem: boolean
+            If InitialProblem == 1, the first period involves an asset
+            allocation decision, with no consumption decision or flow uitilty.
         
         Returns
         -------
@@ -1641,15 +1644,92 @@ class ConsIRAPFSolver(HARKobject):
                          'd': 'illiquid deposit/withdrawal'}
         
         self.solution_next  = solution_next
-        self.Income         = Income
+        self.NextIncome     = NextIncome
         self.DiscFac        = DiscFac
         self.CRRA           = CRRA
         self.Rsave          = Rsave
         self.Rira           = Rira
         self.PenIRA         = PenIRA
         self.MaxIRA         = MaxIRA
-        self.DistIRA        = DistIRA        
+        self.DistIRA        = DistIRA
+        self.InitialProblem = InitialProblem
+    
+    def solve(self):
+        '''
+        Solves the one period, perfect foresight IRA consumption problem.
         
+        Parameters
+        ----------
+        none
+        
+        Returns
+        -------
+        solution: Function
+            ConsIRAPFxxx solution function for this period.
+        '''
+        # If there is an initial allocation decision
+        if self.InitialProblem:
+            solution = ConsIRAPFinitial(self.NextIncome,self.DiscFac,self.CRRA,
+                                        self.Rsave,self.Rira,
+                                        self.solution_next)
+        
+        # During a period when there is still a penalty for withdrawals
+        elif self.DistIRA < 0:
+            solution = ConsIRAPFpen(self.NextIncome,self.DiscFac,self.CRRA,
+                                    self.Rsave,self.Rira,self.PenIRA,
+                                    self.MaxIRA,self.solution_next)
+        
+        # During a period when there is no penalty for withdrawals
+        else:
+            solution = ConsIRAPFnoPen(self.NextIncome,self.DiscFac,self.CRRA,
+                                      self.Rsave,self.Rira,self.MaxIRA,
+                                      self.solution_next)
+        
+        return solution
+    
+def solvePerfectForesightIRA(solution_next,NextIncome,DiscFac,CRRA,Rsave,Rira,
+                             PenIRA,MaxIRA,DistIRA,InitialProblem):
+    '''
+    Solves a single period IRA consumer problem for a consumer with perfect
+    foresight.
+    
+    Parameters
+    ----------
+    solution_next : ConsumerSolution
+        The solution to next period's one period problem.
+    NextIncome : float
+        Income for the next period (known with certainty)
+    DiscFac : float
+        Intertemporal discount factor for future utility.
+    CRRA : float
+        Coefficient of relative risk aversion.
+    Rsave: float
+        Interest factor on liquid assets between this period and the 
+        succeeding period when assets are positive.
+    Rira:  float
+        Interest factor on illiquid assets between this period and the 
+        succeeding period.
+    PenIRA: float
+        Penalty for early withdrawals (d < 0) from the illiquid account, 
+        i.e. before t = T_ira.
+    MaxIRA: float
+        Maximum allowable IRA deposit, d <= MaxIRA
+    DistIRA: float or None
+        Number of periods between current period and T_ira, i.e. T_ira - t.
+        If DistIRA == None, T_ira > T_cycle, i.e. no expiration.
+    InitialProblem: boolean
+        If InitialProblem == 1, the first period involves an asset
+        allocation decision, with no consumption decision or flow uitilty.
+        
+    Returns
+    -------
+    solution : ConsumerSolution
+        The solution to this period's problem.
+    '''
+    solver = ConsIRAPFSolver(solution_next,NextIncome,DiscFac,CRRA,Rsave,Rira,
+                             PenIRA,MaxIRA,DistIRA,InitialProblem)
+    solution = solver.solve()
+    return solution
         
 # ==========================
 # === General IRA model ===
@@ -2614,7 +2694,7 @@ class IRAConsumerType(IndShockConsumerType):
         if self.bXtraCount == 0:
             self.bXtraGrid = np.array([])
         else:
-            bgrid = HARKobject
+            bgrid = HARKobject()
             bgrid.aXtraMin = self.bXtraMin
             bgrid.aXtraMax = self.bXtraMax
             bgrid.aXtraCount = self.bXtraCount
@@ -2902,51 +2982,51 @@ def main():
     dMax = .5
     t = .1
     
-    p4 = ConsIRA5Period4(g)
-    p4a = ConsIRAPFterminal(g)
-    p3 = ConsIRA5Period3(y,b,g,ra,r,dMax,p4)
-    p3a = ConsIRAPFnoPen(y,b,g,ra,r,dMax,p4a)
-    p2 = ConsIRA5Period2(y,b,g,ra,r,t,dMax,p3)
-    p2a = ConsIRAPFpen(y,b,g,ra,r,t,dMax,p3a)
-    p1 = ConsIRA5Period1(y,b,g,ra,r,t,dMax,p2)
-    p1a = ConsIRAPFpen(y,b,g,ra,r,t,dMax,p2a)
-    p0 = ConsIRA5Period0(y,b,g,ra,r,p1)
-    p0a = ConsIRAPFinitial(y,b,g,ra,r,p1a)
-    
-    
-    mRange = np.arange(2.0,8,1)
-    c = {}
-    c['4'] = np.array([p4(m,0.0)['cFunc'] for m in mRange])
-    c['3'] = np.array([p3(m,0.0)['cFunc'] for m in mRange])
-    c['2'] = np.array([p2(m,0.0)['cFunc'] for m in mRange])
-    c['1'] = np.array([p1(m,0.0)['cFunc'] for m in mRange])
-    c['0'] = np.array([p0(m)['aFunc'] for m in mRange])
-    
-    ca = {}
-    ca['4'] = np.array([p4a(m,0.0)['cFunc'] for m in mRange])
-    ca['3'] = np.array([p3a(m,0.0)['cFunc'] for m in mRange])
-    ca['2'] = np.array([p2a(m,0.0)['cFunc'] for m in mRange])
-    ca['1'] = np.array([p1a(m,0.0)['cFunc'] for m in mRange])
-    ca['0'] = np.array([p0a(m)['aFunc'] for m in mRange])
-    
-    def comparePlots(period):
-        x = mRange
-        y1 = c[str(period)]
-        y2 = ca[str(period)]
-        plt.plot(x,y1,'C1',label='Simple Solver')
-        plt.plot(x,y2,'C0--',label='Numpy Solver')
-        plt.xlabel('liquid assets')
-        plt.ylabel('consumption')
-        plt.title('Consumption Functions: Period ' + str(period))
-        plt.legend()
-        plt.grid()
-        plt.show()
-        
-    comparePlots(4)
-    comparePlots(3)
-    comparePlots(2)
-    comparePlots(1)
-    comparePlots(0)
+#    p4 = ConsIRA5Period4(g)
+#    p4a = ConsIRAPFterminal(g)
+#    p3 = ConsIRA5Period3(y,b,g,ra,r,dMax,p4)
+#    p3a = ConsIRAPFnoPen(y,b,g,ra,r,dMax,p4a)
+#    p2 = ConsIRA5Period2(y,b,g,ra,r,t,dMax,p3)
+#    p2a = ConsIRAPFpen(y,b,g,ra,r,t,dMax,p3a)
+#    p1 = ConsIRA5Period1(y,b,g,ra,r,t,dMax,p2)
+#    p1a = ConsIRAPFpen(y,b,g,ra,r,t,dMax,p2a)
+#    p0 = ConsIRA5Period0(y,b,g,ra,r,p1)
+#    p0a = ConsIRAPFinitial(y,b,g,ra,r,p1a)
+#    
+#    
+#    mRange = np.arange(2.0,8,1)
+#    c = {}
+#    c['4'] = np.array([p4(m,0.0)['cFunc'] for m in mRange])
+#    c['3'] = np.array([p3(m,0.0)['cFunc'] for m in mRange])
+#    c['2'] = np.array([p2(m,0.0)['cFunc'] for m in mRange])
+#    c['1'] = np.array([p1(m,0.0)['cFunc'] for m in mRange])
+#    c['0'] = np.array([p0(m)['aFunc'] for m in mRange])
+#    
+#    ca = {}
+#    ca['4'] = np.array([p4a(m,0.0)['cFunc'] for m in mRange])
+#    ca['3'] = np.array([p3a(m,0.0)['cFunc'] for m in mRange])
+#    ca['2'] = np.array([p2a(m,0.0)['cFunc'] for m in mRange])
+#    ca['1'] = np.array([p1a(m,0.0)['cFunc'] for m in mRange])
+#    ca['0'] = np.array([p0a(m)['aFunc'] for m in mRange])
+#    
+#    def comparePlots(period):
+#        x = mRange
+#        y1 = c[str(period)]
+#        y2 = ca[str(period)]
+#        plt.plot(x,y1,'C1',label='Simple Solver')
+#        plt.plot(x,y2,'C0--',label='Numpy Solver')
+#        plt.xlabel('liquid assets')
+#        plt.ylabel('consumption')
+#        plt.title('Consumption Functions: Period ' + str(period))
+#        plt.legend()
+#        plt.grid()
+#        plt.show()
+#        
+#    comparePlots(4)
+#    comparePlots(3)
+#    comparePlots(2)
+#    comparePlots(1)
+#    comparePlots(0)
     
     # Plot consumption functions beside each other
     
@@ -3032,11 +3112,10 @@ def main():
         #plt.savefig('IRA_Results/IRAPFcons_' + graph_lab + '.png')
         plt.show()
      
-    #yPath = np.array([1,1,1,1])
-    #solveSimulation(1,yPath,.95,'low')
+    yPath = np.array([1,1,1,1])
+    solveSimulation(.25,yPath,.95,.1,'low')
     
-    #yPath2 = np.array([2,2,2,2])
-    #SolveSimulation(2,yPath2,.95,'hi',0.1)
+    solveSimulation(.25,yPath,.95,.2,'hi')
         
 if __name__ == '__main__':
     main()
