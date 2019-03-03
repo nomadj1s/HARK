@@ -34,7 +34,7 @@ sys.path.insert(0, os.path.abspath('./'))
 
 import matplotlib.pyplot as plt
 
-from core import NullFunc, HARKobject
+from core import NullFunc, HARKobject, progress_timer
 from interpolation import LinearInterp, BilinearInterp, ConstantFunction
 from ConsIndShockModel import ConsIndShockSolver, constructAssetsGrid,\
                               IndShockConsumerType, KinkedRconsumerType
@@ -3025,10 +3025,17 @@ class IRAPerfForesightConsumerType(HARKobject):
         
         # Initialize the solution
         PenT = 0.0 if self.T_ira <= self.T_cycle else 0.1
+        
+        pt = progress_timer(description= 'Solving Lifecycle',
+                            n_iter=self.T_cycle)
+        
         solution = [ConsIRAPFterminal(self.CRRA,PenT)]
+        
+        pt.update()
         
         # Add rest of solutions
         for i in reversed(range(self.T_cycle-1)):
+            pt.update()
             if i >= self.T_ira - 1:
                 solution.append(ConsIRAPFnoPen(self.IncomeProfile[i+1],
                                                self.DiscFac,self.CRRA,
@@ -3048,23 +3055,38 @@ class IRAPerfForesightConsumerType(HARKobject):
                                                  self.DiscFac,self.CRRA,
                                                  self.Rsave,self.Rira,
                                                solution[self.T_cycle - i - 2]))
-                
-        self.solution = solution.reverse()
+
+        solution.reverse()        
+        
+        self.solution = solution
+    
+        pt.finish()
     
     def simulate(self,w0):
+        
+        pt = progress_timer(description= 'Simulating Lifecycle',
+                        n_iter=self.T_cycle)
         
         if self.InitialProblem:
             simulation = [self.solution[0](w0)]
         
         else:
             simulation = [self.solution[0](w0,0.0)]
+        
+        pt.update()
             
         for i in range(1,self.T_cycle):
+            
+            pt.update()
+            
             simulation.append(
-                          self.solution[i](self.Rsave*simulation[i-1]['aFunc'],
+                          self.solution[i](self.IncomeProfile[i] + 
+                                           self.Rsave*simulation[i-1]['aFunc'],
                                            self.Rira*simulation[i-1]['bFunc']))
         
         self.simulation = simulation
+        
+        pt.finish()
         
 ###############################################################################
 
