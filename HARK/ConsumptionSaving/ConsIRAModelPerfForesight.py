@@ -3024,37 +3024,40 @@ class IRAPerfForesightConsumerType(HARKobject):
     def solve(self):
         
         # Initialize the solution
-        solution = [ConsIRAPFterminal(self.CRRA)]
+        PenT = 0.0 if self.T_ira <= self.T_cycle else 0.1
+        solution = [ConsIRAPFterminal(self.CRRA,PenT)]
+        
+        # Add rest of solutions
         for i in reversed(range(self.T_cycle-1)):
-            if i >= self.T_ira:
+            if i >= self.T_ira - 1:
                 solution.append(ConsIRAPFnoPen(self.IncomeProfile[i+1],
                                                self.DiscFac,self.CRRA,
                                                self.Rsave,self.Rira,
-                                   self.MaxIRA,solution[self.T_cycle - i - 1]))
+                                   self.MaxIRA,solution[self.T_cycle - i - 2]))
             
-            elif ((i < self.T_ira and i > 0) or 
+            elif ((i < self.T_ira - 1 and i > 0) or 
                   (i == 0 and not self.InitialProblem)):
                 solution.append(ConsIRAPFpen(self.IncomeProfile[i+1],
                                              self.DiscFac,self.CRRA,
                                              self.Rsave,self.Rira,
-                                             self.PenIra,self.MaxIRA,
-                                             solution[self.T_cycle - i - 1]))
+                                             self.PenIRA,self.MaxIRA,
+                                             solution[self.T_cycle - i - 2]))
             
             else:
                 solution.append(ConsIRAPFinitial(self.IncomeProfile[i+1],
                                                  self.DiscFac,self.CRRA,
                                                  self.Rsave,self.Rira,
-                                               solution[self.T_cycle - i - 1]))
+                                               solution[self.T_cycle - i - 2]))
                 
         self.solution = solution.reverse()
     
-    def simulate(self,w):
+    def simulate(self,w0):
         
         if self.InitialProblem:
-            simulation = [self.solution[0](w)]
+            simulation = [self.solution[0](w0)]
         
         else:
-            simulation = [self.solution[0](w,0.0)]
+            simulation = [self.solution[0](w0,0.0)]
             
         for i in range(1,self.T_cycle):
             simulation.append(
@@ -3206,10 +3209,10 @@ def main():
         #plt.savefig('IRA_Results/IRAPFcons_' + graph_lab + '.png')
         plt.show()
      
-    yPath = np.array([1,1,1,1])
-    solveSimulation(.25,yPath,.95,.1,'low')
+    #yPath = np.array([1,1,1,1])
+    #solveSimulation(.25,yPath,.95,.1,'low')
     
-    solveSimulation(.25,yPath,.95,.2,'hi')
+    #solveSimulation(.25,yPath,.95,.2,'hi')
         
 if __name__ == '__main__':
     main()
