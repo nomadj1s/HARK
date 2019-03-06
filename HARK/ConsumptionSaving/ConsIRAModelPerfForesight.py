@@ -20,12 +20,12 @@ from builtins import range
 from copy import copy, deepcopy
 import numpy as np
 from scipy.optimize import basinhopping
-from scipy.optimize import fixed_point as fp
 from scipy.optimize import brentq as br
 from time import clock, time
 import multiprocessing as mp
 from pathos.multiprocessing import ProcessPool
 import itertools as itr
+from functools import wraps
 
 import sys 
 import os
@@ -50,6 +50,24 @@ utilityP_inv  = CRRAutilityP_inv
 utility_invP  = CRRAutility_invP
 utility_inv   = CRRAutility_inv
 utilityP_invP = CRRAutilityP_invP
+
+def memoized(obj):
+    '''
+    This is a wrapper. When @memoized is placed right before a method
+    of a class, this causes the result of that method to be recorded. If
+    the method is called again with the exact same arguments, we don't
+    have to actually compute the answer again, we can just recall our
+    previous value. This saves time when do simulations.
+    '''
+    cache = obj.cache = {}
+
+    @wraps(obj)
+    def memoizer(*args, **kwargs):
+        key = str(args) + str(kwargs)
+        if key not in cache:
+            cache[key] = obj(*args, **kwargs)
+        return cache[key]
+    return memoizer
 
 class ConsIRASolution(HARKobject):
     '''
@@ -613,7 +631,8 @@ class ConsIRAPFterminal(HARKobject):
         self.CRRA = CRRA
         self.PenIRA = PenIRA
         self.output = output
-        
+    
+    @memoized
     def __call__(self,m,n):
         '''
         Evaluate consumption decision for final period. If n and m don't
@@ -660,7 +679,7 @@ class ConsIRAPFterminal(HARKobject):
         c = m + (1.0-t)*n
         d = -n
         a = m*0.0
-        b = 0.0
+        b = m*0.0
         v = utility(c,gam=self.CRRA)
         vPm = utilityP(c,gam=self.CRRA)
         vPn = utilityP(c,gam=self.CRRA)
@@ -724,6 +743,7 @@ class ConsIRAPFnoPen(HARKobject):
         self.ConsIRAnext    = deepcopy(ConsIRAnext)
         self.output         = output
     
+    @memoized
     def dFOC(self,d,m,n,yN):
         '''
         Evaluate expression for d, derived from the FOC for d at an interior 
@@ -754,7 +774,8 @@ class ConsIRAPFnoPen(HARKobject):
         foc = uP - r*beta*vPn
         
         return foc
-        
+    
+    @memoized    
     def aFOC(self,a,m,n,yN):
         '''
         Evaluate expression for a, derived from the FOC for when illiquid 
@@ -788,6 +809,7 @@ class ConsIRAPFnoPen(HARKobject):
         
         return foc
     
+    @memoized
     def __call__(self,m,n):
         '''
         Evaluate optimal consupmtion, deposit, savings, value and marginal
@@ -1023,7 +1045,8 @@ class ConsIRAPFpen(HARKobject):
         self.yN             = NextIncome
         self.ConsIRAnext    = deepcopy(ConsIRAnext)
         self.output         = output
-        
+    
+    @memoized    
     def wFOC(self,d,m,n,yN):
         '''
         Evaluate expression for d, derived from the FOC for d in period 1 at
@@ -1057,6 +1080,7 @@ class ConsIRAPFpen(HARKobject):
         
         return foc
     
+    @memoized
     def dFOC(self,d,m,n,yN):
         '''
         Evaluate expression for d, derived from the FOC for d in period 1 at
@@ -1089,6 +1113,7 @@ class ConsIRAPFpen(HARKobject):
         
         return foc
     
+    @memoized
     def aKinkFOC(self,a,m,n,yN):
         '''
         Evaluate expression for a, derived from the FOC for a when illiquid 
@@ -1121,6 +1146,7 @@ class ConsIRAPFpen(HARKobject):
         
         return foc
     
+    @memoized
     def aFOC(self,a,m,n,yN):
         '''
         Evaluate the FOC for a when illiquid savings are capped.
@@ -1152,6 +1178,7 @@ class ConsIRAPFpen(HARKobject):
         
         return foc
     
+    @memoized
     def __call__(self,m,n):
         '''
         Evaluate optimal consupmtion, deposit, savings, value and marginal
@@ -1463,7 +1490,8 @@ class ConsIRAPFinitial(HARKobject):
         self.yN             = NextIncome
         self.ConsIRAnext    = deepcopy(ConsIRAnext)
         self.output         = output
-        
+    
+    @memoized    
     def aFOC(self,a,w,yN):
         '''
         Evaluate expression for the FOC for a in initial period. Satisfies the 
@@ -1491,6 +1519,7 @@ class ConsIRAPFinitial(HARKobject):
         
         return foc
     
+    @memoized
     def __call__(self,w):
         '''
         Evaluate optimal initial asset allocation in the initial period.
@@ -3026,16 +3055,10 @@ class IRAPerfForesightConsumerType(HARKobject):
         # Initialize the solution
         PenT = 0.0 if self.T_ira <= self.T_cycle else 0.1
         
-        pt = progress_timer(description= 'Solving Lifecycle',
-                            n_iter=self.T_cycle)
-        
         solution = [ConsIRAPFterminal(self.CRRA,PenT)]
-        
-        pt.update()
         
         # Add rest of solutions
         for i in reversed(range(self.T_cycle-1)):
-            pt.update()
             if i >= self.T_ira - 1:
                 solution.append(ConsIRAPFnoPen(self.IncomeProfile[i+1],
                                                self.DiscFac,self.CRRA,
@@ -3060,20 +3083,20 @@ class IRAPerfForesightConsumerType(HARKobject):
         
         self.solution = solution
     
-        pt.finish()
-    
     def simulate(self,w0):
+        
+        self.w0 = w0
         
         pt = progress_timer(description= 'Simulating Lifecycle',
                         n_iter=self.T_cycle)
+        
+        pt.update()
         
         if self.InitialProblem:
             simulation = [self.solution[0](w0)]
         
         else:
             simulation = [self.solution[0](w0,0.0)]
-        
-        pt.update()
             
         for i in range(1,self.T_cycle):
             
@@ -3088,153 +3111,115 @@ class IRAPerfForesightConsumerType(HARKobject):
         
         pt.finish()
         
-###############################################################################
-
-def main():
-    mystr = lambda number : "{:.4f}".format(number)
-    
-    y = 1
-    b = 1
-    g = 2
-    ra = 1
-    r = 1.1
-    dMax = .5
-    t = .1
-    
-#    p4 = ConsIRA5Period4(g)
-#    p4a = ConsIRAPFterminal(g)
-#    p3 = ConsIRA5Period3(y,b,g,ra,r,dMax,p4)
-#    p3a = ConsIRAPFnoPen(y,b,g,ra,r,dMax,p4a)
-#    p2 = ConsIRA5Period2(y,b,g,ra,r,t,dMax,p3)
-#    p2a = ConsIRAPFpen(y,b,g,ra,r,t,dMax,p3a)
-#    p1 = ConsIRA5Period1(y,b,g,ra,r,t,dMax,p2)
-#    p1a = ConsIRAPFpen(y,b,g,ra,r,t,dMax,p2a)
-#    p0 = ConsIRA5Period0(y,b,g,ra,r,p1)
-#    p0a = ConsIRAPFinitial(y,b,g,ra,r,p1a)
-#    
-#    
-#    mRange = np.arange(2.0,8,1)
-#    c = {}
-#    c['4'] = np.array([p4(m,0.0)['cFunc'] for m in mRange])
-#    c['3'] = np.array([p3(m,0.0)['cFunc'] for m in mRange])
-#    c['2'] = np.array([p2(m,0.0)['cFunc'] for m in mRange])
-#    c['1'] = np.array([p1(m,0.0)['cFunc'] for m in mRange])
-#    c['0'] = np.array([p0(m)['aFunc'] for m in mRange])
-#    
-#    ca = {}
-#    ca['4'] = np.array([p4a(m,0.0)['cFunc'] for m in mRange])
-#    ca['3'] = np.array([p3a(m,0.0)['cFunc'] for m in mRange])
-#    ca['2'] = np.array([p2a(m,0.0)['cFunc'] for m in mRange])
-#    ca['1'] = np.array([p1a(m,0.0)['cFunc'] for m in mRange])
-#    ca['0'] = np.array([p0a(m)['aFunc'] for m in mRange])
-#    
-#    def comparePlots(period):
-#        x = mRange
-#        y1 = c[str(period)]
-#        y2 = ca[str(period)]
-#        plt.plot(x,y1,'C1',label='Simple Solver')
-#        plt.plot(x,y2,'C0--',label='Numpy Solver')
-#        plt.xlabel('liquid assets')
-#        plt.ylabel('consumption')
-#        plt.title('Consumption Functions: Period ' + str(period))
-#        plt.legend()
-#        plt.grid()
-#        plt.show()
-#        
-#    comparePlots(4)
-#    comparePlots(3)
-#    comparePlots(2)
-#    comparePlots(1)
-#    comparePlots(0)
-    
-    # Plot consumption functions beside each other
-    
-    def solveSimulation(w0,yL,beta,t,graph_lab):
-        p4 = ConsIRAPFterminal(g)
-        p3 = ConsIRAPFnoPen(yL[3],beta,g,ra,r,dMax,p4)
-        p2 = ConsIRAPFpen(yL[2],beta,g,ra,r,t,dMax,p3)
-        p1 = ConsIRAPFpen(yL[1],beta,g,ra,r,t,dMax,p2)
-        p0 = ConsIRAPFinitial(yL[0],beta,g,ra,r,p1)
+    def graphSim(self,saveFig=0,savePath='',graphLab =''):
         
-        m = np.empty(5,dtype=np.float)
-        n = np.empty(5,dtype=np.float)
+        # create lifecycle arrays
+        keys = ['aFunc','bFunc','cFunc','dFunc']
         
-        m[0] = w0
-        n[0] = 0.0
-        s0 = p0(w0)
-        m[1] = yL[0] + ra*s0['aFunc']
-        n[1] = r*s0['dFunc']
-        s1 = p1(m[1],n[1])
-        m[2] = yL[1] + ra*s1['aFunc']
-        n[2] = r*(s1['dFunc'] + n[1])
-        s2 = p2(m[2],n[2])
-        m[3] = yL[2] + ra*s2['aFunc']
-        n[3] = r*(s2['dFunc'] + n[2])
-        s3 = p3(m[3],n[3])
-        m[4] = yL[3] + ra*s3['aFunc']
-        n[4] = r*(s3['dFunc'] + n[3])
-        s4 = p4(m[4],n[4])
+        a, b, c, d = [np.concatenate([k[ki] for k in self.simulation],axis=0) 
+                                      for ki in keys]
         
-        X = [s0,s1,s2,s3,s4]
+        y = self.IncomeProfile
+        y[0] = self.w0
         
-        a = np.array([x['aFunc'][0] for x in X],dtype=np.float)
-        c = np.array([x['cFunc'][0] for x in X],dtype=np.float)
-        d = np.array([x['dFunc'][0] for x in X],dtype=np.float)
-        y = np.array([w0,yL[0],yL[1],yL[2],yL[3]])
-        
-        # End of Period Illiquid  Assets
-        b = n + d
-        
-        # Deposits and Withdrawals
         dep = np.maximum(d,0)
         withdr = -np.minimum(d,0)
         
-        
         # Plot Assets
-        tvar = np.arange(5)
+        tvar = np.arange(self.T_cycle)
         plt.plot(tvar,b,'C1',label='Illiquid Assets')
         plt.plot(tvar,a,'C0--',label='Liquid Assets')
-        plt.xlabel('time')
-        plt.ylabel('balance')
-        plt.title('Asset Accumulation, beta=' + str(beta) +', w0=' + str(w0) +
-                  ', t=' + str(t))
+        plt.xlabel('Time')
+        plt.ylabel('Balance')
+        plt.title('Asset Accumulation, beta=' + str(self.DiscFac) +', w0=' 
+                  + str(self.w0) + ', t=' + str(self.PenIRA))
         plt.legend()
         plt.grid()
-        plt.xticks(np.array([0,1,2,3,4]))
-        #plt.savefig('IRA_Results/IRAPFassets_' + graph_lab + '.png')
+        plt.xticks(tvar)
+        plt.axvline(x=self.T_ira-1,color = 'C3')
+        if saveFig:
+            plt.savefig(savePath + '/IRAPFassets_' + graphLab + '.png')
         plt.show()
         
         # Plot Withdrawals and Deposits
         plt.plot(tvar,dep,'C1',label='Deposits')
         plt.plot(tvar,withdr,'C0--',label='Withdrawals')
-        plt.xlabel('time')
-        plt.ylabel('balance')
-        plt.title('Deposits/Withdrawals, beta=' + str(beta) +', w0=' + str(w0) 
-                  + ', t=' + str(t))
+        plt.xlabel('Time')
+        plt.ylabel('Deposits/Withdrawals')
+        plt.title('Deposits/Withdrawals, beta=' + str(self.DiscFac) +', w0=' 
+                  + str(self.w0) + ', t=' + str(self.PenIRA))
         plt.legend()
         plt.grid()
-        plt.xticks(np.array([0,1,2,3,4]))
-        #plt.savefig('IRA_Results/IRAPFwithdr_' + graph_lab + '.png')
+        plt.xticks(tvar)
+        plt.axvline(x=self.T_ira-1,color = 'C3')
+        if saveFig:
+            plt.savefig(savePath + '/IRAPFwithdr_' + graphLab + '.png')
         plt.show()
         
         #Plot Consumption and Income
         plt.plot(tvar[1:],c[1:],'C1',label='Consumption')
         plt.plot(tvar[1:],y[1:],'C0--',label='Income')
-        plt.xlabel('time')
+        plt.xlabel('Time')
         plt.ylabel('Consumption/Income')
-        plt.title('Income/Consumption, beta=' + str(beta) +', w0=' + str(w0) 
-                  + ', t=' + str(t))
+        plt.title('Income/Consumption, beta=' + str(self.DiscFac) +', w0=' 
+                  + str(self.w0) + ', t=' + str(self.PenIRA))
         plt.legend()
         plt.grid()
         plt.xticks(tvar[1:])
-        plt.yticks(np.array([0,.5,1,1.5,2]))
-        #plt.savefig('IRA_Results/IRAPFcons_' + graph_lab + '.png')
+        starter = np.round(np.min([c[1:],y[1:]]) -  (np.max([c[1:],y[1:]]) 
+                           - np.min([c[1:],y[1:]]))/6, decimals = 2)
+        stopper = np.round(np.max([c[1:],y[1:]]) -  (np.max([c[1:],y[1:]]) 
+                           - np.min([c[1:],y[1:]]))/6, decimals = 2)
+        plt.yticks(np.linspace(starter,stopper,6))
+        plt.axvline(x=self.T_ira-1,color = 'C3')
+        if saveFig:
+            plt.savefig(savePath + '/IRAPFcons_' + graphLab + '.png')
         plt.show()
-     
-    #yPath = np.array([1,1,1,1])
-    #solveSimulation(.25,yPath,.95,.1,'low')
+        
+###############################################################################
+
+def main():
     
-    #solveSimulation(.25,yPath,.95,.2,'hi')
+    w0 = 0.25
+    T = 8
+    T_ira = 6
+    y = np.array(T*[1])
+    b = 1
+    g = 2
+    ra = 1
+    r = 1.1
+    dMax = .5
+    t = .2
+    
+    
+    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+    IRAPF.solve()
+    IRAPF.simulate(w0)
+    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P')
+    
+    y[4] = .75
+    
+    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+    IRAPF.solve()
+    IRAPF.simulate(w0)
+    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P5')
+    
+    y[4] = 1
+    y[3] = .75
+    
+    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+    IRAPF.solve()
+    IRAPF.simulate(w0)
+    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P4')
+    
+    y[4] = 1
+    y[3] = 1
+    y[2] = .75
+    
+    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+    IRAPF.solve()
+    IRAPF.simulate(w0)
+    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P3')    
         
 if __name__ == '__main__':
     main()
