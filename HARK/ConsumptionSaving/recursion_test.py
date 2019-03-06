@@ -1,37 +1,43 @@
 from math import log
-from scipy.optimize import minimize_scalar as ms
+from scipy.optimize import minimize_scalar
 
-class v3(object):
+class vT(object):
     def __init__(self,c):
         self.c = c
+    
+    def x(self,w):
+        return w
         
     def __call__(self,w):
-        return self.c*log(w)
+        return self.c*log(self.x(w))
 
-class v2(object):
-    def __init__(self,c,v3):
+class vt(object):
+    def __init__(self,c,vN):
         self.c = c
-        self.v3 = v3
+        self.vN = vN
         
     def objFunc(self,x,w):
-        return -self.c*log(x) - self.v3(w - x)
+        return -self.c*log(x) - self.vN(w - x)
+    
+    def x(self,w):
+        x_star = minimize_scalar(self.objFunc,args=(w,),method='bounded',
+                                 bounds=(1e-10,w-1e-10)).x
+        return x_star
     
     def __call__(self,w):
-        x_star = ms(self.objFunc,args=(w,),method='bounded',
-                    bounds=(1e-10,w-1e-10)).x
-        return self.c*log(x_star) + self.v3(w - x_star)
+        return self.c*log(self.x(w)) + self.vN(w - self.x(w))
 
-class v1(object):
-    def __init__(self,c,v2):
-        self.c = c
-        self.v2 = v2
-        
-    def objFunc(self,x,w):
-        obj =  -self.c*log(x) - self.v2(w - x)
-        return obj
-        
-    def __call__(self,w):
-        x_star = ms(self.objFunc,args=(w,),method='bounded',
-                    bounds=(1e-10,w-1e-10)).x
-        return x_star
+p3 = vT(2.0)
+p2 = vt(2.0,p3)
+p1 = vt(2.0,p2)
 
+w1 = 3.0
+x1 = p1.x(w1)
+w2 = w1 - x1
+x2 = p2.x(w2)
+w3 = w2 - x2
+x3 = w3
+
+x = [x1,x2,x3]
+
+print('Optimal x when w1 = 3 is ' + str(x))
