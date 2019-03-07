@@ -3165,11 +3165,8 @@ class IRAPerfForesightConsumerType(HARKobject):
                   + str(self.w0) + ', t=' + str(self.PenIRA))
         plt.legend()
         plt.grid()
-        plt.xticks(tvar[1:])
-        starter = np.floor(10.0*np.min([c[1:],d[1:]]))/10.0
-        stopper = np.ceil(10.0*np.max([c[1:],d[1:]]))/10.0
-        stepper = np.max([.1,np.round(10*(stopper - starter)/6.0)/10.0])
-        plt.yticks(np.arange(starter,starter + 6*stepper,stepper))
+        plt.xticks(tvar)
+        plt.locator_params(axis='y', nbins=6)
         plt.axvline(x=self.T_ira-1,color = 'C3')
         if saveFig:
             plt.savefig(savePath + '/IRAPFcons_' + graphLab + '.png')
@@ -3191,34 +3188,34 @@ def main():
     t = .2
     
     
-    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P')
+#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P_serial')
     
+    y[3] = .75
     y[4] = .75
     
     IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
     IRAPF.solve()
     IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P5')
+    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P3_serial')
     
-    y[4] = 1.0
-    y[3] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P4')
-    
-    y[4] = 1.0
     y[3] = 1.0
-    y[2] = .75
+    y[5] = .75
     
     IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
     IRAPF.solve()
     IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P3')    
+    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P4_serial')
+    
+    y[4] = 1.0
+    y[6] = .75
+    
+    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+    IRAPF.solve()
+    IRAPF.simulate(w0)
+    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P5_serial')    
         
 if __name__ == '__main__':
     main()
