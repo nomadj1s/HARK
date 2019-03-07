@@ -3166,11 +3166,10 @@ class IRAPerfForesightConsumerType(HARKobject):
         plt.legend()
         plt.grid()
         plt.xticks(tvar[1:])
-        starter = np.round(np.min([c[1:],y[1:]]) -  (np.max([c[1:],y[1:]]) 
-                           - np.min([c[1:],y[1:]]))/6, decimals = 2)
-        stopper = np.round(np.max([c[1:],y[1:]]) -  (np.max([c[1:],y[1:]]) 
-                           - np.min([c[1:],y[1:]]))/6, decimals = 2)
-        plt.yticks(np.linspace(starter,stopper,6))
+        starter = np.floor(10.0*np.min([c[1:],d[1:]]))/10.0
+        stopper = np.ceil(10.0*np.max([c[1:],d[1:]]))/10.0
+        stepper = np.max([.1,np.round(10*(stopper - starter)/6.0)/10.0])
+        plt.yticks(np.arange(starter,starter + 6*stepper,stepper))
         plt.axvline(x=self.T_ira-1,color = 'C3')
         if saveFig:
             plt.savefig(savePath + '/IRAPFcons_' + graphLab + '.png')
@@ -3183,7 +3182,7 @@ def main():
     w0 = 0.25
     T = 8
     T_ira = 6
-    y = np.array(T*[1])
+    y = np.array(T*[1.0])
     b = 1
     g = 2
     ra = 1
@@ -3204,7 +3203,7 @@ def main():
     IRAPF.simulate(w0)
     IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P5')
     
-    y[4] = 1
+    y[4] = 1.0
     y[3] = .75
     
     IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
@@ -3212,8 +3211,8 @@ def main():
     IRAPF.simulate(w0)
     IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P4')
     
-    y[4] = 1
-    y[3] = 1
+    y[4] = 1.0
+    y[3] = 1.0
     y[2] = .75
     
     IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
