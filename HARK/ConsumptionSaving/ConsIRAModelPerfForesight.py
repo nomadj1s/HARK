@@ -26,6 +26,7 @@ import multiprocessing as mp
 from pathos.multiprocessing import ProcessPool
 import itertools as itr
 from functools import wraps
+import pickle
 
 import sys 
 import os
@@ -904,7 +905,8 @@ class ConsIRAPFnoPen(HARKobject):
         
         if np.sum(inter) > 0: # if no one is at interior solution, skip        
             # loop through solutions for values of m,n,yN and create an array
-            d[...,1][inter] = np.array([br(self.dFOC,-ni,mi,args=(mi,ni,yNi))
+            d[...,1][inter] = np.array([br(self.dFOC,-ni,min(dMax,mi),
+                                           args=(mi,ni,yNi))
                                         for mi,ni,yNi
                                         in itr.izip(m[inter].flatten(),
                                                     n[inter].flatten(),
@@ -1354,7 +1356,8 @@ class ConsIRAPFpen(HARKobject):
         
         if np.sum(dep) > 0: # if no one deposits, skip
             # loop through solutions for values of m,n,yN and create an array
-            d[...,4][dep] = np.array([br(self.dFOC,0.0,mi,args=(mi,ni,yNi))
+            d[...,4][dep] = np.array([br(self.dFOC,0.0,min(dMax,mi),
+                                         args=(mi,ni,yNi))
                                       for mi,ni,yNi
                                       in itr.izip(m[dep].flatten(),
                                                   n[dep].flatten(),
@@ -1572,7 +1575,7 @@ class ConsIRAPFinitial(HARKobject):
         # Corner solution with all assets placed in liquid account
         solLiq = self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))
         
-        liq = (ra*solLiq['vPmFunc'] > r*solLiq['vPnFunc'])
+        liq = (ra*solLiq['vPmFunc'] >= r*solLiq['vPnFunc'])
         
         if np.sum(liq) > 0: # if no one liquidates, skip
             c[...,0][liq] = 0.0
@@ -1586,8 +1589,8 @@ class ConsIRAPFinitial(HARKobject):
         # Interior solution with positive liquid and illiquid savings
         solCap = self.ConsIRAnext(yN,r*w)
         
-        inter = ((ra*solLiq['vPmFunc'] <= r*solLiq['vPnFunc']) &
-                 (ra*solCap['vPmFunc'] >= r*solCap['vPnFunc']))
+        inter = ((ra*solLiq['vPmFunc'] < r*solLiq['vPnFunc']) &
+                 (ra*solCap['vPmFunc'] > r*solCap['vPnFunc']))
         
         if np.sum(inter) > 0: # if no one is at interior, skip
             c[...,1][inter] = 0.0
@@ -1610,7 +1613,7 @@ class ConsIRAPFinitial(HARKobject):
             vPn[...,1][inter] = 0.0
         
         # Corner solution with all asstes placed in illiquid account
-        cap = ra*solCap['vPmFunc'] < r*solCap['vPnFunc']
+        cap = ra*solCap['vPmFunc'] <= r*solCap['vPnFunc']
         
         if np.sum(cap) > 0: # if no one is at cap, skip
             c[...,2][cap] = 0.0
@@ -3186,28 +3189,98 @@ def main():
     r = 1.1
     dMax = .5
     t = .2
-    
+    simulations = {}
     
 #    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
 #    IRAPF.solve()
 #    IRAPF.simulate(w0)
-#    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P_serial')
-
+#    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P')
+#    
+#    simulations['8P'] = IRAPF.simulation
+#    
+#     # Single period dips
+#    
+#    y[1] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P1')
+#    
+#    simulations['8P1'] = IRAPF.simulation
+#
+#    y[1] = 1.0
 #    y[2] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P2')
+#    
+#    simulations['8P2'] = IRAPF.simulation
+#    
+#    y[2] = 1.0
+#    y[3] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P3')
+#    
+#    simulations['8P3'] = IRAPF.simulation
+#    
+#    y[3] = 1.0
+#    y[4] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P4')
+#    
+#    simulations['8P4'] = IRAPF.simulation
+#    
+#    y[4] = 1.0
+#    y[5] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P5')
+#    
+#    simulations['8P5'] = IRAPF.simulation
+#    
+    # Serially correlated dips
+    
+    y = np.array(T*[1.0])
+    y[1] = .75
+    y[2] = .75
+    
+    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+    IRAPF.solve()
+    IRAPF.simulate(w0)
+    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P1_serial')
+    
+    simulations['8P1s'] = IRAPF.simulation
+#    
+#    y[1] = 1.0
 #    y[3] = .75
 #    
 #    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
 #    IRAPF.solve()
 #    IRAPF.simulate(w0)
 #    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P2_serial')
-    
-    y[3] = .75
-    y[4] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P3_serial')
+#    
+#    simulations['8P2s'] = IRAPF.simulation
+#    
+#    y[2] = 1.0
+#    y[4] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P3_serial')
+#    
+#    simulations['8P3s'] = IRAPF.simulation
 #    
 #    y[3] = 1.0
 #    y[5] = .75
@@ -3217,13 +3290,23 @@ def main():
 #    IRAPF.simulate(w0)
 #    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P4_serial')
 #    
+#    simulations['8P4s'] = IRAPF.simulation
+#    
 #    y[4] = 1.0
 #    y[6] = .75
 #    
 #    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
 #    IRAPF.solve()
 #    IRAPF.simulate(w0)
-#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P5_serial')    
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P5_serial')   
+#    
+#    simulations['8P5s'] = IRAPF.simulation
+#    
+    with open('IRA_Results/IRAPF_Simulations2.pickle','wb') as handle:
+        pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
+    with open('IRA_Results/IRAPF_Simulations2.pickle', 'rb') as handle:
+        stored_simulation = pickle.load(handle)
         
 if __name__ == '__main__':
     main()
