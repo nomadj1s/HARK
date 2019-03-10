@@ -3183,7 +3183,7 @@ def main():
     T = 8
     T_ira = 6
     y = np.array(T*[1.0])
-    b = 0.95
+    beta = 0.95
     g = 2
     ra = 1
     r = 1.1
@@ -3191,7 +3191,7 @@ def main():
     t = .2
     simulations = {}
     
-#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
 #    IRAPF.solve()
 #    IRAPF.simulate(w0)
 #    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P')
@@ -3202,7 +3202,7 @@ def main():
 #    
 #    y[1] = .75
 #    
-#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
 #    IRAPF.solve()
 #    IRAPF.simulate(w0)
 #    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P1')
@@ -3212,7 +3212,7 @@ def main():
 #    y[1] = 1.0
 #    y[2] = .75
 #    
-#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
 #    IRAPF.solve()
 #    IRAPF.simulate(w0)
 #    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P2')
@@ -3222,7 +3222,7 @@ def main():
 #    y[2] = 1.0
 #    y[3] = .75
 #    
-#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
 #    IRAPF.solve()
 #    IRAPF.simulate(w0)
 #    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P3')
@@ -3232,7 +3232,7 @@ def main():
 #    y[3] = 1.0
 #    y[4] = .75
 #    
-#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
 #    IRAPF.solve()
 #    IRAPF.simulate(w0)
 #    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P4')
@@ -3242,30 +3242,30 @@ def main():
 #    y[4] = 1.0
 #    y[5] = .75
 #    
-#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
 #    IRAPF.solve()
 #    IRAPF.simulate(w0)
 #    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P5')
 #    
 #    simulations['8P5'] = IRAPF.simulation
 #    
-    # Serially correlated dips
-    
-    y = np.array(T*[1.0])
-    y[1] = .75
-    y[2] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P1_serial')
-    
-    simulations['8P1s'] = IRAPF.simulation
+#    # Serially correlated dips
+#    
+#    y = np.array(T*[1.0])
+#    y[1] = .75
+#    y[2] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P1_serial')
+#    
+#    simulations['8P1s'] = IRAPF.simulation
 #    
 #    y[1] = 1.0
 #    y[3] = .75
 #    
-#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
 #    IRAPF.solve()
 #    IRAPF.simulate(w0)
 #    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P2_serial')
@@ -3275,7 +3275,7 @@ def main():
 #    y[2] = 1.0
 #    y[4] = .75
 #    
-#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
 #    IRAPF.solve()
 #    IRAPF.simulate(w0)
 #    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P3_serial')
@@ -3285,7 +3285,7 @@ def main():
 #    y[3] = 1.0
 #    y[5] = .75
 #    
-#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
 #    IRAPF.solve()
 #    IRAPF.simulate(w0)
 #    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P4_serial')
@@ -3295,18 +3295,18 @@ def main():
 #    y[4] = 1.0
 #    y[6] = .75
 #    
-#    IRAPF = IRAPerfForesightConsumerType(y,b,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
 #    IRAPF.solve()
 #    IRAPF.simulate(w0)
 #    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P5_serial')   
 #    
 #    simulations['8P5s'] = IRAPF.simulation
 #    
-    with open('IRA_Results/IRAPF_Simulations2.pickle','wb') as handle:
-        pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
-    with open('IRA_Results/IRAPF_Simulations2.pickle', 'rb') as handle:
-        stored_simulation = pickle.load(handle)
-        
+#    with open('IRA_Results/IRAPF_Simulations2.pickle','wb') as handle:
+#        pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
+#        
+#    with open('IRA_Results/IRAPF_Simulations2.pickle', 'rb') as handle:
+#        stored_simulation = pickle.load(handle)
+#        
 if __name__ == '__main__':
     main()
