@@ -3252,16 +3252,16 @@ def main():
 #    
 #    simulations['8P'] = IRAPF.simulation
 #    
-     # Single period dips
-    
-    y[1] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P1')
-    
-    simulations['8P1'] = IRAPF.simulation
+#     # Single period dips
+#    
+#    y[1] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P1')
+#    
+#    simulations['8P1'] = IRAPF.simulation
 #
 #    y[1] = 1.0
 #    y[2] = .75
@@ -3313,8 +3313,9 @@ def main():
     IRAPF.solve()
     IRAPF.simulate(w0)
     IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P1_serial')
-#    
-#    simulations['8P1s'] = IRAPF.simulation
+    
+    simulations['8P1s'] = IRAPF.simulation
+
 #    
 #    y[1] = 1.0
 #    y[3] = .75
