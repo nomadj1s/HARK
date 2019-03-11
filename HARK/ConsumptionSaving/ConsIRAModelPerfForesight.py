@@ -879,39 +879,48 @@ class ConsIRAPFnoPen(HARKobject):
         vPn = np.full_like(c,1.0) # marginal value wrt n
         
         # Liquidate illiquid account, no liquid savings
-        solLiq = self.ConsIRAnext(yN,np.zeros(n.shape))
-        uPliq = uP(m + n)
+        solLiq = np.full_like(m,0.0)
+        uPliq = np.full_like(m,0.0)
+        liq = np.full_like(m,False,dtype='bool')
         
-        # lower bound on withdrawal is binding        
-        liq = uPliq >= r*beta*solLiq['vPnFunc']
-        
+        for idx in np.ndindex(m.shape):
+            solLiq[idx] = self.ConsIRAnext(yN[idx],0.0)['vPnFunc']
+            uPliq[idx] = uP(m[idx] + n[idx])
+            
+            # lower bound on withdrawal is binding
+            liq[idx] = uPliq[idx] >= r*beta*solLiq[idx]
+    
         if np.sum(liq) > 0: # if no one liquidates, skip
             c[...,0][liq] = m[liq] + n[liq]
             d[...,0][liq] = -n[liq]
             a[...,0][liq] = 0.0
             b[...,0][liq] = 0.0
-            v[...,0][liq] = u(c[...,0][liq]) + beta*solLiq['vFunc'][liq]
+            v[...,0][liq] = u(c[...,0][liq]) +\
+                            beta*self.ConsIRAnext(yN[liq],
+                                                  np.zeros(n[liq].shape)
+                                                  )['vFunc']
             vPm[...,0][liq] = uP(c[...,0][liq])
             vPn[...,0][liq] = uP(c[...,0][liq])
             
         # Interior solution, partial illiquid withdrawal or deposit,
         # no liquid saving
-        solCap = self.ConsIRAnext(yN,r*(n+dMax))
-        # if m <= dMax, will not reach illiquid savings cap
-        uPcap = np.where(m > dMax,uP(m - dMax),np.inf)
+        solCap = np.full_like(m,0.0)
+        uPcap = np.full_like(m,0.0)
+        inter = np.full_like(m,False,dtype='bool')
         
-        inter = ((uPliq < r*beta*solLiq['vPnFunc']) &
-                 (uPcap > r*beta*solCap['vPnFunc']))
+        for idx in np.ndindex(m.shape):
+            solCap[idx] = self.ConsIRAnext(yN[idx],r*(n[idx]+dMax))['vPnFunc']
+            uPcap[idx] = np.where(m[idx] > dMax,uP(m[idx] - dMax),np.inf)
+            
+            inter[idx] = ((uPliq[idx] < r*beta*solLiq[idx]) &
+                          (uPcap[idx] > r*beta*solCap[idx]))
         
         if np.sum(inter) > 0: # if no one is at interior solution, skip        
             # loop through solutions for values of m,n,yN and create an array
-            d[...,1][inter] = np.array([br(self.dFOC,-ni,min(dMax,mi),
-                                           args=(mi,ni,yNi))
-                                        for mi,ni,yNi
-                                        in itr.izip(m[inter].flatten(),
-                                                    n[inter].flatten(),
-                                                    yN[inter].flatten())    
-                                        ]).reshape(m[inter].shape)
+            for idx in np.ndindex(m.shape):
+                if inter[idx]:
+                    d[...,1][idx] = br(self.dFOC,-n[idx],min(dMax,m[idx]),
+                                       args=(m[idx],n[idx],yN[idx]))
             
             c[...,1][inter] = m[inter] - d[...,1][inter]
             a[...,1][inter] = 0.0
@@ -927,37 +936,44 @@ class ConsIRAPFnoPen(HARKobject):
         
         # upper bound on deposits and lower bound on liquid savings binds
         # cap on illiquid savings exceeds cash on hand
-        cap = ((uPcap <= r*beta*solCap['vPnFunc']) & 
-               (uPcap >= ra*beta*solCap['vPmFunc']) &
-               (m > dMax))
+        solCapA = np.full_like(m,0.0)
+        cap = np.full_like(m,False,dtype='bool')
+        
+        for idx in np.ndindex(m.shape):
+            solCapA[idx] = self.ConsIRAnext(yN[idx],r*(n[idx]+dMax))['vPmFunc']
+            cap[idx] = ((uPcap[idx] <= r*beta*solCap[idx]) & 
+                        (uPcap[idx] >= ra*beta*solCapA[idx]) &
+                        (m[idx] > dMax))
         
         if np.sum(cap) > 0: # if no one is at cap w/ no liquid savings, skip               
             c[...,2][cap] = m[cap] - dMax
             d[...,2][cap] = dMax
             a[...,2][cap] = 0.0
             b[...,2][cap] = n[cap] + dMax
-            v[...,2][cap] = u(c[...,2][cap]) + beta*solCap['vFunc'][cap]
+            v[...,2][cap] = u(c[...,2][cap]) +\
+                            beta*self.ConsIRAnext(yN[cap],r*(n[cap] + dMax)
+                                                  )['vFunc']
             vPm[...,2][cap] = uP(c[...,2][cap])
-            vPn[...,2][cap] = r*beta*solCap['vPnFunc'][cap]
+            vPn[...,2][cap] = r*beta*solCap[cap]
         
         # Illiquid savings cap & liquid savings
         
         # upper bound on deposits binds and lower bound on liquid savings 
         # doesn't bind
         # cap on illiquid savings exceeds cash on hand
-        cap_save = ((uPcap <= r*beta*solCap['vPnFunc']) & 
-                    (uPcap < ra*beta*solCap['vPmFunc']) &
-                    (m > dMax))
+        cap_save = np.full_like(m,False,dtype='bool')
+        
+        for idx in np.ndindex(m.shape):
+            cap_save[idx] = ((uPcap[idx] <= r*beta*solCap[idx]) & 
+                             (uPcap[idx] < ra*beta*solCapA[idx]) &
+                             (m[idx] > dMax))
         
         if np.sum(cap_save) > 0: # if no one is at cap w/ liquid savings, skip
             # loop through solutions for values of m,n,yN and create an array
-            a[...,3][cap_save] = np.array([br(self.aFOC,0.0,mi-dMax,
-                                              args=(mi,ni,yNi))
-                                           for mi,ni,yNi
-                                           in itr.izip(m[cap_save].flatten(),
-                                                       n[cap_save].flatten(),
-                                                       yN[cap_save].flatten())
-                                           ]).reshape(m[cap_save].shape)
+            for idx in np.ndindex(m.shape):
+                if cap_save[idx]:
+                    a[...,3][idx] = br(self.aFOC,0.0,m[idx]-dMax,
+                                       args=(m[idx],n[idx],yN[idx]))
                                            
             solCapSave = self.ConsIRAnext(yN[cap_save]+ra*a[...,3][cap_save],
                                           r*(n[cap_save]+dMax))
@@ -1250,39 +1266,49 @@ class ConsIRAPFpen(HARKobject):
         vPn = np.full_like(c,1.0) # marginal value wrt n
                
         # Liquidate illiquid account, no liquid savings
-        solLiq = self.ConsIRAnext(yN,np.zeros(n.shape))
-        uPliq = (1.0-t)*uP(m + (1.0-t)*n)
+        solLiq = np.full_like(m,0.0)
+        uPliq = np.full_like(m,0.0)
+        liq = np.full_like(m,False,dtype='bool')
+        
+        for idx in np.ndindex(m.shape):
+            solLiq[idx] = self.ConsIRAnext(yN[idx],0.0)['vPnFunc']
+            uPliq[idx] = (1.0-t)*uP(m[idx] + (1.0-t)*n[idx])
 
-        # lower bound on withdrawal is binding        
-        liq = uPliq >= r*beta*solLiq['vPnFunc']
+            # lower bound on withdrawal is binding        
+            liq[idx] = uPliq[idx] >= r*beta*solLiq[idx]
         
         if np.sum(liq) > 0: # if no one liquidates, skip
             c[...,0][liq] = m[liq] + (1.0-t)*n[liq]
             d[...,0][liq] = -n[liq]
             a[...,0][liq] = 0.0
             b[...,0][liq] = 0.0
-            v[...,0][liq] = u(c[...,0][liq]) + beta*solLiq['vFunc'][liq]
+            v[...,0][liq] = u(c[...,0][liq]) +\
+                            beta*self.ConsIRAnext(yN[liq],
+                                                  np.zeros(n[liq].shape)
+                                                  )['vFunc']
             vPm[...,0][liq] = uP(c[...,0][liq])
             vPn[...,0][liq] = (1.0-t)*uP(c[...,0][liq])       
             
         # Interior solution, partial illiquid withdrawal, no liquid saving
-        solKink = self.ConsIRAnext(yN,r*n)
-        uPwithdr = (1.0-t)*uP(m)
+        solKink = np.full_like(m,0.0)
+        uPwithdr = np.full_like(m,0.0)
+        withdr = np.full_like(m,False,dtype='bool')
         
-        # neither bound on withdrawals binds
-        withdr = ((uPliq < r*beta*solLiq['vPnFunc']) & 
-                  (uPwithdr > r*beta*solKink['vPnFunc']))
+        for idx in np.ndindex(m.shape):
+            solKink[idx] = self.ConsIRAnext(yN[idx],r*n[idx])['vPnFunc']
+            uPwithdr[idx] = (1.0-t)*uP(m[idx])
+        
+            # neither bound on withdrawals binds
+            withdr[idx] = ((uPliq[idx] < r*beta*solLiq[idx]) & 
+                           (uPwithdr[idx] > r*beta*solKink[idx]))
         
         # interior solution for withdrawal
         if np.sum(withdr) > 0: # if no one withdraws, skip
             # loop through solutions for values of m,n,yN and create an array
-            d[...,1][withdr] = np.array([br(self.wFOC,-ni,0.0,
-                                            args=(mi,ni,yNi)) 
-                                        for mi,ni,yNi
-                                        in itr.izip(m[withdr].flatten(),
-                                                    n[withdr].flatten(),
-                                                    yN[withdr].flatten())
-                                         ]).reshape(m[withdr].shape)
+            for idx in np.ndindex(m.shape):
+                if withdr[idx]:
+                    d[...,1][idx] = br(self.wFOC,-n[idx],0.0,
+                                       args=(m[idx],n[idx],yN[idx])) 
         
             c[...,1][withdr] = m[withdr] - (1.0-t)*d[...,1][withdr]
             a[...,1][withdr] = 0.0
@@ -1296,41 +1322,47 @@ class ConsIRAPFpen(HARKobject):
             vPn[...,1][withdr] = (1.0-t)*uP(c[...,1][withdr])
         
         # Corner solution w/ no illiquid withdrawal or saving, no liquid saving
-        uPdep = uP(m)
+        uPdep = np.full_like(m,0.0)
+        solKinkA = np.full_like(m,0.0)
+        kink = np.full_like(m,False,dtype='bool')
         
-        # upperbound on withdrawals and lower bound on deposits bind
-        # lower bound on liquid savings binds
-        kink = ((uPwithdr <= r*beta*solKink['vPnFunc']) &
-                (uPdep >= r*beta*solKink['vPnFunc']) &
-                (uPdep >= ra*beta*solKink['vPmFunc']))
+        for idx in np.ndindex(m.shape):
+            uPdep[idx] = uP(m[idx])
+            solKinkA[idx] = self.ConsIRAnext(yN[idx],r*n[idx])['vPmFunc']
+        
+            # upperbound on withdrawals and lower bound on deposits bind
+            # lower bound on liquid savings binds
+            kink[idx] = ((uPwithdr[idx] <= r*beta*solKink[idx]) &
+                         (uPdep[idx] >= r*beta*solKink[idx]) &
+                         (uPdep[idx] >= ra*beta*solKinkA[idx]))
         
         if np.sum(kink) > 0: # if no one is at kink, skip
             c[...,2][kink] = m[kink]
             d[...,2][kink] = 0.0
             a[...,2][kink] = 0.0
             b[...,2][kink] = n[kink]
-            v[...,2][kink] = u(c[...,2][kink]) + beta*solKink['vFunc'][kink]
+            v[...,2][kink] = u(c[...,2][kink]) +\
+                             beta*self.ConsIRAnext(yN[kink],r*n[kink])['vFunc']
             vPm[...,2][kink] = uP(c[...,2][kink])
-            vPn[...,2][kink] = r*beta*solKink['vPnFunc'][kink]
+            vPn[...,2][kink] = r*beta*solKink[kink]
             
         # Corner solution w/ no illiquid withdrawal or saving & liquid saving
         
         # upperbound on withdrawals and lower bound on deposits bind
         # lower bound on liquid savings doesn't bind
-        kink_save = ((uPwithdr <= r*beta*solKink['vPnFunc']) &
-                     (uPdep >= r*beta*solKink['vPnFunc']) &
-                     (uPdep < ra*beta*solKink['vPmFunc']))
+        kink_save = np.full_like(m,False,dtype='bool')
+        
+        for idx in np.ndindex(m.shape):
+            kink_save[idx] = ((uPwithdr[idx] <= r*beta*solKink[idx]) &
+                              (uPdep[idx] >= r*beta*solKink[idx]) &
+                              (uPdep[idx] < ra*beta*solKinkA[idx]))
         
         if np.sum(kink_save) > 0: # if no one saves at kink, skip
             # loop through solutions for values of m,n,yN and create an array
-            a[...,3][kink_save] = np.array([br(self.aKinkFOC,0.0,mi,
-                                               args=(mi,ni,yNi)) 
-                                            for mi,ni,yNi
-                                            in itr.izip(m[kink_save].flatten(),
-                                                        n[kink_save].flatten(),
-                                                        yN[kink_save].flatten()
-                                                        )
-                                            ]).reshape(m[kink_save].shape)        
+            for idx in np.ndindex(m.shape):
+                if kink_save[idx]:
+                    a[...,3][idx] = br(self.aKinkFOC,0.0,m[idx],
+                                       args=(m[idx],n[idx],yN[idx]))       
         
             solKinkSave = self.ConsIRAnext(yN[kink_save] 
                                            + ra*a[...,3][kink_save],
@@ -1345,24 +1377,25 @@ class ConsIRAPFpen(HARKobject):
             vPn[...,3][kink_save] = r*beta*solKinkSave['vPnFunc']
             
         # Interior solution, partial liquid deposit, no liquid saving
-        solCap = self.ConsIRAnext(yN,r*(n+dMax))
+        solCap = np.full_like(m,0.0)
+        uPcap = np.full_like(m,0.0)
+        dep = np.full_like(m,False,dtype='bool')
         
-        # if m <= dMax, will not reach illiquid savings cap
-        uPcap = np.where(m > dMax,uP(m - dMax),np.inf)
-        
-        # neither bound is binding for deposits
-        dep = ((uPdep < r*beta*solKink['vPnFunc']) & 
-               (uPcap > r*beta*solCap['vPnFunc']))
+        for idx in np.ndindex(m.shape):
+            solCap[idx] = self.ConsIRAnext(yN[idx],r*(n[idx]+dMax))['vPnFunc']
+            # if m <= dMax, will not reach illiquid savings cap
+            uPcap[idx] = np.where(m[idx] > dMax,uP(m[idx] - dMax),np.inf)
+            
+            # neither bound is binding for deposits
+            dep[idx] = ((uPdep[idx] < r*beta*solKink[idx]) & 
+                        (uPcap[idx] > r*beta*solCap[idx]))
         
         if np.sum(dep) > 0: # if no one deposits, skip
             # loop through solutions for values of m,n,yN and create an array
-            d[...,4][dep] = np.array([br(self.dFOC,0.0,min(dMax,mi),
-                                         args=(mi,ni,yNi))
-                                      for mi,ni,yNi
-                                      in itr.izip(m[dep].flatten(),
-                                                  n[dep].flatten(),
-                                                  yN[dep].flatten())
-                                      ]).reshape(m[dep].shape)
+            for idx in np.ndindex(m.shape):
+                if dep[idx]:
+                    d[...,4][idx] = br(self.dFOC,0.0,min(dMax,m[idx]),
+                                       args=(m[idx],n[idx],yN[idx]))
         
             c[...,4][dep] = m[dep] - d[...,4][dep]
             a[...,4][dep] = 0.0
@@ -1378,38 +1411,45 @@ class ConsIRAPFpen(HARKobject):
         
         # upper bound on deposits and lower bound on liquid savings binds
         # cap on illiquid savings exceeds cash on hand
-        cap = ((uPcap <= r*beta*solCap['vPnFunc']) & 
-               (uPcap >= ra*beta*solCap['vPmFunc']) &
-               (m > dMax))
+        solCapA = np.full_like(m,0.0)
+        cap = np.full_like(m,False,dtype='bool')
+        
+        for idx in np.ndindex(m.shape):
+            solCapA[idx] = self.ConsIRAnext(yN[idx],r*(n[idx]+dMax))['vPmFunc']
+            cap[idx] = ((uPcap[idx] <= r*beta*solCap[idx]) & 
+                        (uPcap[idx] >= ra*beta*solCapA[idx]) &
+                        (m[idx] > dMax))
         
         if np.sum(cap) > 0: # if no one is at cap w/ no liquid savings, skip
             c[...,5][cap] = m[cap] - dMax
             d[...,5][cap] = dMax
             a[...,5][cap] = 0.0
             b[...,5][cap] = n[cap] + dMax
-            v[...,5][cap] = u(c[...,5][cap]) + beta*solCap['vFunc'][cap]
+            v[...,5][cap] = u(c[...,5][cap]) +\
+                            beta*self.ConsIRAnext(yN[cap],r*(n[cap]+dMax)
+                                                  )['vFunc']
             vPm[...,5][cap] = uP(c[...,5][cap])
-            vPn[...,5][cap] = r*beta*solCap['vPnFunc'][cap]
+            vPn[...,5][cap] = r*beta*solCap[cap]
             
         # Illiquid savings cap and liquid savings
         
         # upper bound on deposits binds and lower bound on liquid savings 
         # doesn't bind
         # cap on illiquid savings exceeds cash on hand
-        cap_save = ((uPcap <= r*beta*solCap['vPnFunc']) & 
-                    (uPcap < ra*beta*solCap['vPmFunc']) &
-                    (m > dMax))
+        cap_save = np.full_like(m,False,dtype='bool')
+        
+        for idx in np.ndindex(m.shape):
+            cap_save[idx] = ((uPcap[idx] <= r*beta*solCap[idx]) & 
+                             (uPcap[idx] < ra*beta*solCapA[idx]) &
+                             (m[idx] > dMax))
         
         
         if np.sum(cap_save) > 0: # if no one is at cap w/ liquid savings, skip
             # loop through solutions for values of m,n,yN and create an array
-            a[...,6][cap_save] = np.array([br(self.aFOC,0.0,mi - dMax,
-                                              args=(mi,ni,yNi))
-                                           for mi,ni,yNi
-                                           in itr.izip(m[cap_save].flatten(),
-                                                       n[cap_save].flatten(),
-                                                       yN[cap_save].flatten())
-                                           ]).reshape(m[cap_save].shape)
+            for idx in np.ndindex(m.shape):
+                if cap_save[idx]:
+                    a[...,6][idx] = br(self.aFOC,0.0,m[idx]-dMax,
+                                       args=(m[idx],n[idx],yN[idx]))
         
             solCapSave = self.ConsIRAnext(yN[cap_save]+ra*a[...,6][cap_save],
                                           r*(n[cap_save]+dMax))
@@ -1573,34 +1613,45 @@ class ConsIRAPFinitial(HARKobject):
         vPn = np.full_like(a,0.0) # marginal value wrt n
         
         # Corner solution with all assets placed in liquid account
-        solLiq = self.ConsIRAnext(yN + ra*w,np.zeros(w.shape))
+        solLiq = np.full_like(w,0.0)
+        solLiqA = np.full_like(w,0.0)
+        liq = np.full_like(w,False,dtype='bool')
         
-        liq = (ra*solLiq['vPmFunc'] >= r*solLiq['vPnFunc'])
+        for idx in np.ndindex(w.shape):
+            solLiq[idx] = self.ConsIRAnext(yN[idx] + ra*w[idx],0.0)['vPnFunc']
+            solLiqA[idx] = self.ConsIRAnext(yN[idx] + ra*w[idx],0.0)['vPmFunc']
+            liq[idx] = (ra*solLiqA[idx] >= r*solLiq[idx])
         
         if np.sum(liq) > 0: # if no one liquidates, skip
             c[...,0][liq] = 0.0
             d[...,0][liq] = 0.0
             a[...,0][liq] = w[liq]
             b[...,0][liq] = 0.0
-            v[...,0][liq] = beta*solLiq['vFunc'][liq]
-            vPm[...,0][liq] = ra*beta*solLiq['vPmFunc'][liq]
+            v[...,0][liq] = beta*self.ConsIRAnext(yN[liq] + ra*w[liq],
+                                                  np.zeros(w[liq].shape)
+                                                  )['vFunc']
+            vPm[...,0][liq] = ra*beta*solLiq[liq]
             vPn[...,0][liq] = 0.0
         
         # Interior solution with positive liquid and illiquid savings
-        solCap = self.ConsIRAnext(yN,r*w)
+        solCap = np.full_like(w,0.0)
+        solCapA = np.full_like(w,0.0)
+        inter = np.full_like(w,False,dtype='bool')
         
-        inter = ((ra*solLiq['vPmFunc'] < r*solLiq['vPnFunc']) &
-                 (ra*solCap['vPmFunc'] > r*solCap['vPnFunc']))
+        for idx in np.ndindex(w.shape):
+            solCap[idx] = self.ConsIRAnext(yN[idx],r*w[idx])['vPnFunc']
+            solCapA[idx] = self.ConsIRAnext(yN[idx],r*w[idx])['vPmFunc']
+            inter[idx] = ((ra*solLiqA[idx] < r*solLiq[idx]) &
+                          (ra*solCapA[idx] > r*solCap[idx]))
         
         if np.sum(inter) > 0: # if no one is at interior, skip
             c[...,1][inter] = 0.0
             
             # loop through solutions for values of m,n,yN and create an array
-            a[...,1][inter] = np.array([br(self.aFOC,0.0,wi,args=(wi,yNi))
-                                        for wi,yNi
-                                        in itr.izip(w[inter].flatten(),
-                                                    yN[inter].flatten())    
-                                        ]).reshape(w[inter].shape)
+            for idx in np.ndindex(w.shape):
+                if inter[idx]:
+                    a[...,1][idx] = br(self.aFOC,0.0,w[idx],
+                                       args=(w[idx],yN[idx]))
 
             d[...,1][inter] = w[inter] - a[...,1][inter]
             b[...,1][inter] = w[inter] - a[...,1][inter]
@@ -1613,15 +1664,18 @@ class ConsIRAPFinitial(HARKobject):
             vPn[...,1][inter] = 0.0
         
         # Corner solution with all asstes placed in illiquid account
-        cap = ra*solCap['vPmFunc'] <= r*solCap['vPnFunc']
+        cap = np.full_like(w,False,dtype='bool')
+        
+        for idx in np.ndindex(w.shape):
+            cap[idx] = ra*solCapA[idx] <= r*solCap[idx]
         
         if np.sum(cap) > 0: # if no one is at cap, skip
             c[...,2][cap] = 0.0
             a[...,2][cap] = 0.0
             d[...,2][cap] = w[cap]
             b[...,2][cap] = w[cap]
-            v[...,2][cap] = beta*solCap['vFunc'][cap]
-            vPm[...,1][cap] = r*beta*solCap['vPnFunc'][cap]
+            v[...,2][cap] = beta*self.ConsIRAnext(yN[cap],r*w[cap])['vFunc']
+            vPm[...,1][cap] = r*beta*solCap[cap]
             vPn[...,1][cap] = 0.0
 
         # Find index of max utility among valid solutions
@@ -3198,16 +3252,16 @@ def main():
 #    
 #    simulations['8P'] = IRAPF.simulation
 #    
-#     # Single period dips
-#    
-#    y[1] = .75
-#    
-#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-#    IRAPF.solve()
-#    IRAPF.simulate(w0)
-#    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P1')
-#    
-#    simulations['8P1'] = IRAPF.simulation
+     # Single period dips
+    
+    y[1] = .75
+    
+    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+    IRAPF.solve()
+    IRAPF.simulate(w0)
+    IRAPF.graphSim(saveFig=0,savePath='IRA_Results',graphLab='8P1')
+    
+    simulations['8P1'] = IRAPF.simulation
 #
 #    y[1] = 1.0
 #    y[2] = .75
@@ -3249,16 +3303,16 @@ def main():
 #    
 #    simulations['8P5'] = IRAPF.simulation
 #    
-#    # Serially correlated dips
-#    
-#    y = np.array(T*[1.0])
-#    y[1] = .75
-#    y[2] = .75
-#    
-#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-#    IRAPF.solve()
-#    IRAPF.simulate(w0)
-#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P1_serial')
+    # Serially correlated dips
+    
+    y = np.array(T*[1.0])
+    y[1] = .75
+    y[2] = .75
+    
+    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+    IRAPF.solve()
+    IRAPF.simulate(w0)
+    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P1_serial')
 #    
 #    simulations['8P1s'] = IRAPF.simulation
 #    
@@ -3302,11 +3356,11 @@ def main():
 #    
 #    simulations['8P5s'] = IRAPF.simulation
 #    
-#    with open('IRA_Results/IRAPF_Simulations2.pickle','wb') as handle:
-#        pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
-#        
-#    with open('IRA_Results/IRAPF_Simulations2.pickle', 'rb') as handle:
-#        stored_simulation = pickle.load(handle)
-#        
+    with open('IRA_Results/IRAPF_Simulations2.pickle','wb') as handle:
+        pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
+    with open('IRA_Results/IRAPF_Simulations2.pickle', 'rb') as handle:
+        stored_simulation = pickle.load(handle)
+        
 if __name__ == '__main__':
     main()
