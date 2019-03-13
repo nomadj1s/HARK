@@ -3097,6 +3097,7 @@ class IRAPerfForesightConsumerType(HARKobject):
                  T_cycle,T_ira,InitialProblem):
         
         self.IncomeProfile      = IncomeProfile
+        self.IncomeProfile0     = deepcopy(IncomeProfile)
         self.DiscFac            = DiscFac
         self.CRRA               = CRRA
         self.Rsave              = Rsave
@@ -3143,6 +3144,8 @@ class IRAPerfForesightConsumerType(HARKobject):
     def simulate(self,w0):
         
         self.w0 = w0
+        self.IncomeProfile = copy(self.IncomeProfile0)
+        self.solve()
         
         pt = progress_timer(description= 'Simulating Lifecycle',
                         n_iter=self.T_cycle)
@@ -3168,6 +3171,240 @@ class IRAPerfForesightConsumerType(HARKobject):
         
         pt.finish()
         
+    def simulate1Dip(self,w0,tDip,dipSize):
+        
+        self.w0 = w0
+        self.IncomeProfile = copy(self.IncomeProfile0)
+        self.IncomeProfile[tDip] *= dipSize
+        self.solve()
+        
+        pt = progress_timer(description= 'Simulating Lifecycle',
+                        n_iter=self.T_cycle)
+        
+        pt.update()
+        
+        if self.InitialProblem:
+            simulation = [self.solution[0](w0)]
+        
+        else:
+            simulation = [self.solution[0](w0,0.0)]
+            
+        for i in range(1,self.T_cycle):
+            
+            pt.update()
+            
+            simulation.append(
+                          self.solution[i](self.IncomeProfile[i] + 
+                                           self.Rsave*simulation[i-1]['aFunc'],
+                                           self.Rira*simulation[i-1]['bFunc']))
+        
+        self.simulation = simulation
+        
+        pt.finish()
+        
+    def simulate2Dip(self,w0,tDip,dipSize):
+        
+        self.w0 = w0
+        self.IncomeProfile = copy(self.IncomeProfile0)
+        self.IncomeProfile[tDip:tDip + 2] *= dipSize
+        self.solve()
+        
+        pt = progress_timer(description= 'Simulating Lifecycle',
+                        n_iter=self.T_cycle)
+        
+        pt.update()
+        
+        if self.InitialProblem:
+            simulation = [self.solution[0](w0)]
+        
+        else:
+            simulation = [self.solution[0](w0,0.0)]
+            
+        for i in range(1,self.T_cycle):
+            
+            pt.update()
+            
+            simulation.append(
+                          self.solution[i](self.IncomeProfile[i] + 
+                                           self.Rsave*simulation[i-1]['aFunc'],
+                                           self.Rira*simulation[i-1]['bFunc']))
+        
+        self.simulation = simulation
+        
+        pt.finish()
+        
+    def simulatePDip(self,w0,tDip,dipSize):
+        
+        self.w0 = w0
+        self.IncomeProfile = copy(self.IncomeProfile0)
+        a = (1.0 - dipSize)*\
+            np.sum(self.IncomeProfile[tDip:tDip+2])/\
+            np.sum(self.IncomeProfile[tDip:])
+        self.IncomeProfile[tDip:] *= 1 - a
+        self.solve()
+        
+        pt = progress_timer(description= 'Simulating Lifecycle',
+                        n_iter=self.T_cycle)
+        
+        pt.update()
+        
+        if self.InitialProblem:
+            simulation = [self.solution[0](w0)]
+        
+        else:
+            simulation = [self.solution[0](w0,0.0)]
+            
+        for i in range(1,self.T_cycle):
+            
+            pt.update()
+            
+            simulation.append(
+                          self.solution[i](self.IncomeProfile[i] + 
+                                           self.Rsave*simulation[i-1]['aFunc'],
+                                           self.Rira*simulation[i-1]['bFunc']))
+        
+        self.simulation = simulation
+        
+        pt.finish()
+        
+    def simulate1Shock(self,w0,tDip,dipSize):
+        
+        self.w0 = w0
+        self.IncomeProfile = copy(self.IncomeProfile0)
+        self.solve()
+        
+        pt = progress_timer(description= 'Simulating Lifecycle',
+                        n_iter=self.T_cycle)
+        
+        pt.update()
+        
+        if self.InitialProblem:
+            simulation = [self.solution[0](w0)]
+        
+        else:
+            simulation = [self.solution[0](w0,0.0)]
+
+        for i in range(1,tDip):
+            
+            pt.update()
+            
+            simulation.append(
+                        self.solution[i](self.IncomeProfile[i] + 
+                                           self.Rsave*simulation[i-1]['aFunc'],
+                                           self.Rira*simulation[i-1]['bFunc']))
+        
+        oldSolution = self.solution
+        
+        self.IncomeProfile[tDip] *= dipSize
+        self.solve()
+
+        for i in range(tDip,self.T_cycle):
+            
+            pt.update()
+            
+            simulation.append(
+                        self.solution[i](self.IncomeProfile[i] + 
+                                           self.Rsave*simulation[i-1]['aFunc'],
+                                           self.Rira*simulation[i-1]['bFunc']))
+        
+        self.simulation = simulation
+        self.solution[:tDip-1] = oldSolution[:tDip-1]
+        
+        pt.finish()
+        
+    def simulate2Shock(self,w0,tDip,dipSize):
+        
+        self.w0 = w0
+        self.IncomeProfile = copy(self.IncomeProfile0)
+        self.solve()
+        
+        pt = progress_timer(description= 'Simulating Lifecycle',
+                        n_iter=self.T_cycle)
+        
+        pt.update()
+        
+        if self.InitialProblem:
+            simulation = [self.solution[0](w0)]
+        
+        else:
+            simulation = [self.solution[0](w0,0.0)]
+
+        for i in range(1,tDip):
+            
+            pt.update()
+            
+            simulation.append(
+                        self.solution[i](self.IncomeProfile[i] + 
+                                           self.Rsave*simulation[i-1]['aFunc'],
+                                           self.Rira*simulation[i-1]['bFunc']))
+        
+        oldSolution = copy(self.solution)
+        
+        self.IncomeProfile[tDip:tDip + 2] *= dipSize
+        self.solve()
+        
+        for i in range(tDip,self.T_cycle):
+            
+            pt.update()
+            
+            simulation.append(
+                        self.solution[i](self.IncomeProfile[i] + 
+                                           self.Rsave*simulation[i-1]['aFunc'],
+                                           self.Rira*simulation[i-1]['bFunc']))
+        
+        self.simulation = simulation
+        self.solution[:tDip-1] = oldSolution[:tDip-1]
+        
+        pt.finish()
+        
+    def simulatePShock(self,w0,tDip,dipSize):
+        
+        self.w0 = w0
+        self.IncomeProfile = copy(self.IncomeProfile0)
+        self.solve()
+        
+        pt = progress_timer(description= 'Simulating Lifecycle',
+                        n_iter=self.T_cycle)
+        
+        pt.update()
+        
+        if self.InitialProblem:
+            simulation = [self.solution[0](w0)]
+        
+        else:
+            simulation = [self.solution[0](w0,0.0)]
+
+        for i in range(1,tDip):
+            
+            pt.update()
+            
+            simulation.append(
+                        self.solution[i](self.IncomeProfile[i] + 
+                                           self.Rsave*simulation[i-1]['aFunc'],
+                                           self.Rira*simulation[i-1]['bFunc']))
+        
+        oldSolution = copy(self.solution)
+        
+        a = (1.0 - dipSize)*\
+            np.sum(self.IncomeProfile[tDip:tDip+2])/\
+            np.sum(self.IncomeProfile[tDip:])
+        self.IncomeProfile[tDip:] *= 1 - a
+        self.solve()
+        
+        for i in range(tDip,self.T_cycle):
+            
+            pt.update()
+            
+            simulation.append(
+                        self.solution[i](self.IncomeProfile[i] + 
+                                           self.Rsave*simulation[i-1]['aFunc'],
+                                           self.Rira*simulation[i-1]['bFunc']))
+        
+        self.simulation = simulation
+        self.solution[:tDip-1] = oldSolution[:tDip-1]
+        
+        pt.finish()
+        
     def graphSim(self,saveFig=0,savePath='',graphLab =''):
         
         # create lifecycle arrays
@@ -3177,7 +3414,6 @@ class IRAPerfForesightConsumerType(HARKobject):
                                       for ki in keys]
         
         y = self.IncomeProfile
-        y[0] = self.w0
         
         dep = np.maximum(d,0)
         withdr = -np.minimum(d,0)
@@ -3243,144 +3479,192 @@ def main():
     r = 1.1
     dMax = .5
     t = .2
-#    simulations = {}
+    simulations = {}
     
-    with open('IRA_Results/IRAPF_Simulations.pickle', 'rb') as handle:
-        simulations = pickle.load(handle)
-    
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.w0 = w0
-    IRAPF.simulation = simulations['8P']
+#    # Permanent dip in income
+#    
+#    y[1:] = 1 - .5/y[1:].size
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
 #    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P')
-    
-    simulations['8P'] = IRAPF.simulation
-    
-    # Single period dips
-    
-    y[1] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.w0 = w0
-    IRAPF.simulation = simulations['8P1']
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P1p')
+#    
+#    simulations['8P1p'] = IRAPF.simulation
+#    
+#    y[1] = 1
+#    y[2:] = 1 - .5/y[2:].size
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
 #    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P1')
-    
-    simulations['8P1'] = IRAPF.simulation
-
-    y[1] = 1.0
-    y[2] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.w0 = w0
-    IRAPF.simulation = simulations['8P2']
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P2p')
+#    
+#    simulations['8P2p'] = IRAPF.simulation
+#    
+#    y[2] = 1
+#    y[3:] = 1 - .5/y[3:].size
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
 #    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P2')
-    
-    simulations['8P2'] = IRAPF.simulation
-    
-    y[2] = 1.0
-    y[3] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.w0 = w0
-    IRAPF.simulation = simulations['8P3']
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P3p')
+#    
+#    simulations['8P3p'] = IRAPF.simulation
+#    
+#    y[3] = 1
+#    y[4:] = 1 - .5/y[4:].size
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
 #    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P3')
-    
-    simulations['8P3'] = IRAPF.simulation
-    
-    y[3] = 1.0
-    y[4] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.w0 = w0
-    IRAPF.simulation = simulations['8P4']
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P4p')
+#    
+#    simulations['8P4p'] = IRAPF.simulation
+#    
+#    y[4] = 1
+#    y[5:] = 1 - .5/y[5:].size
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
 #    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P4')
-    
-    simulations['8P4'] = IRAPF.simulation
-    
-    y[4] = 1.0
-    y[5] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.w0 = w0
-    IRAPF.simulation = simulations['8P5']
-#    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P5')
-    
-    simulations['8P5'] = IRAPF.simulation
-    
-    # Serially correlated dips
-    
-    y = np.array(T*[1.0])
-    y[1] = .75
-    y[2] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.w0 = w0
-    IRAPF.simulation = simulations['8P1s']
-#    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P1s')
-    
-    simulations['8P1s'] = IRAPF.simulation
-
-    
-    y[1] = 1.0
-    y[3] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.w0 = w0
-    IRAPF.simulation = simulations['8P2s']
-#    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P2s')
-    
-    simulations['8P2s'] = IRAPF.simulation
-    
-    y[2] = 1.0
-    y[4] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.w0 = w0
-    IRAPF.simulation = simulations['8P3s']
-#    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P3s')
-    
-    simulations['8P3s'] = IRAPF.simulation
-    
-    y[3] = 1.0
-    y[5] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.w0 = w0
-    IRAPF.simulation = simulations['8P4s']
-#    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P4s')
-    
-    simulations['8P4s'] = IRAPF.simulation
-    
-    y[4] = 1.0
-    y[6] = .75
-    
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
-    IRAPF.solve()
-    IRAPF.w0 = w0
-    IRAPF.simulation = simulations['8P5s']
-#    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P5s')   
-    
-    simulations['8P5s'] = IRAPF.simulation
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P5p')
+#    
+#    simulations['8P5p'] = IRAPF.simulation
+#    
+#    
+#    
+#    with open('IRA_Results/IRAPF_Simulations.pickle', 'rb') as handle:
+#        simulations = pickle.load(handle)
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.w0 = w0
+#    IRAPF.simulation = simulations['8P']
+##    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P')
+#    
+#    simulations['8P'] = IRAPF.simulation
+#    
+#    # Single period dips
+#    
+#    y[1] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.w0 = w0
+#    IRAPF.simulation = simulations['8P1']
+##    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P1')
+#    
+#    simulations['8P1'] = IRAPF.simulation
+#
+#    y[1] = 1.0
+#    y[2] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.w0 = w0
+#    IRAPF.simulation = simulations['8P2']
+##    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P2')
+#    
+#    simulations['8P2'] = IRAPF.simulation
+#    
+#    y[2] = 1.0
+#    y[3] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.w0 = w0
+#    IRAPF.simulation = simulations['8P3']
+##    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P3')
+#    
+#    simulations['8P3'] = IRAPF.simulation
+#    
+#    y[3] = 1.0
+#    y[4] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.w0 = w0
+#    IRAPF.simulation = simulations['8P4']
+##    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P4')
+#    
+#    simulations['8P4'] = IRAPF.simulation
+#    
+#    y[4] = 1.0
+#    y[5] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.w0 = w0
+#    IRAPF.simulation = simulations['8P5']
+##    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P5')
+#    
+#    simulations['8P5'] = IRAPF.simulation
+#    
+#    # Serially correlated dips
+#    
+#    y = np.array(T*[1.0])
+#    y[1] = .75
+#    y[2] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.w0 = w0
+#    IRAPF.simulation = simulations['8P1s']
+##    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P1s')
+#    
+#    simulations['8P1s'] = IRAPF.simulation
+#
+#    
+#    y[1] = 1.0
+#    y[3] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.w0 = w0
+#    IRAPF.simulation = simulations['8P2s']
+##    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P2s')
+#    
+#    simulations['8P2s'] = IRAPF.simulation
+#    
+#    y[2] = 1.0
+#    y[4] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.w0 = w0
+#    IRAPF.simulation = simulations['8P3s']
+##    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P3s')
+#    
+#    simulations['8P3s'] = IRAPF.simulation
+#    
+#    y[3] = 1.0
+#    y[5] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.w0 = w0
+#    IRAPF.simulation = simulations['8P4s']
+##    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P4s')
+#    
+#    simulations['8P4s'] = IRAPF.simulation
+#    
+#    y[4] = 1.0
+#    y[6] = .75
+#    
+#    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,T,T_ira,1)
+#    IRAPF.solve()
+#    IRAPF.w0 = w0
+#    IRAPF.simulation = simulations['8P5s']
+##    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results',graphLab='8P5s')   
+#    
+#    simulations['8P5s'] = IRAPF.simulation
 #    
 #    with open('IRA_Results/IRAPF_Simulations2.pickle','wb') as handle:
 #        pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
