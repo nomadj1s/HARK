@@ -2940,10 +2940,10 @@ def main():
     
     IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,k,T,T_ira,1)
     IRAPF.solve()
-    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results1',graphLab='7p')
+    #IRAPF.simulate(w0)
+    #IRAPF.graphSim(saveFig=1,savePath='IRA_Results1',graphLab='7p')
     
-    for i in range(1,T-1):
+    for i in range(5,T-1):
         IRAPF.simulate1Dip(w0,i,.75)
         IRAPF.graphSim(saveFig=1,savePath='IRA_Results1',graphLab='7p' 
                        + str(i))
