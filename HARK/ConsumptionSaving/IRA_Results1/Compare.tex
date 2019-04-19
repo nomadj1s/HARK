@@ -1,0 +1,41 @@
+\documentclass{article}
+\usepackage{tikz}
+\usepackage{pdflscape}
+
+\begin{document}
+
+\begin{landscape}
+
+%\foreach \x in {1,2,3,4,5}
+%{
+%    \includegraphics[scale=1]{pic\x.png}
+%    \clearpage
+%}
+
+\begin{tabular}{ll}
+\includegraphics[scale=0.75]{IRAPFassets_7p.png}
+&
+\includegraphics[scale=0.75]{../IRA_Results0/IRAPFassets_7p.png}
+\end{tabular}
+
+\foreach \x in {1,2,3,4,5}
+	{
+	\begin{tabular}{ll}
+	\includegraphics[scale=0.75]{IRAPFassets_7p\x.png}
+	&
+	\includegraphics[scale=0.75]{../IRA_Results0/IRAPFassets_7p\x.png}
+	\end{tabular}
+	}
+	
+\foreach \x in {1s,2s,3s,4s,5s}
+	{
+	\begin{tabular}{ll}
+	\includegraphics[scale=0.75]{IRAPFcons_7p\x.png}
+	&
+	\includegraphics[scale=0.75]{../IRA_Results0/IRAPFcons_7p\x.png}
+	\end{tabular}
+	}
+
+\end{landscape}
+
+\end{document}
