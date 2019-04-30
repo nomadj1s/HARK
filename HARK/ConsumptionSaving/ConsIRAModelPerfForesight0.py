@@ -2563,8 +2563,8 @@ class IRAPerfForesightConsumerType(HARKobject):
 def main():
     
     w0 = 0.25
-    T = 8
-    T_ira = 6
+    T = 6
+    T_ira = 4
     y = np.array(T*[1.0])
     beta = 0.95
     g = 2
@@ -2578,31 +2578,43 @@ def main():
     IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,k,T,T_ira,1)
     IRAPF.solve()
     IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results2',graphLab='8p')
-    simulations['8p'] = IRAPF.simulation
+    IRAPF.graphSim(saveFig=1,savePath='IRA_Results2',graphLab='6p')
+    simulations['6p'] = IRAPF.simulation
     
     
-    for i in range(1,T-1):
+    for i in range(1,2):
         IRAPF.simulate1Dip(w0,i,.75)
-        simulations['8p' + str(i)] = IRAPF.simulation
-        IRAPF.graphSim(saveFig=1,savePath='IRA_Results2',graphLab='8p' 
+        simulations['6p' + str(i)] = IRAPF.simulation
+        IRAPF.graphSim(saveFig=1,savePath='IRA_Results2',graphLab='6p' 
                        + str(i))
         IRAPF.simulate2Dip(w0,i,.75)
-        simulations['8p' + str(i) + 's'] = IRAPF.simulation
-        IRAPF.graphSim(saveFig=1,savePath='IRA_Results2',graphLab='8p' 
+        simulations['6p' + str(i) + 's'] = IRAPF.simulation
+        IRAPF.graphSim(saveFig=1,savePath='IRA_Results2',graphLab='6p' 
                        + str(i) + 's')
         IRAPF.simulatePDip(w0,i,.75)
-        simulations['8p' + str(i) + 'p'] = IRAPF.simulation
-        IRAPF.graphSim(saveFig=1,savePath='IRA_Results2',graphLab='8p' 
+        simulations['6p' + str(i) + 'p'] = IRAPF.simulation
+        IRAPF.graphSim(saveFig=1,savePath='IRA_Results2',graphLab='6p' 
+                       + str(i) + 'p')
+        IRAPF.simulate1Shock(w0,i,.75)
+        simulations['6s' + str(i)] = IRAPF.simulation
+        IRAPF.graphSim(saveFig=1,savePath='IRA_Results2',graphLab='6s' 
+                       + str(i))
+        IRAPF.simulate2Shock(w0,i,.75)
+        simulations['6s' + str(i) + 's'] = IRAPF.simulation
+        IRAPF.graphSim(saveFig=1,savePath='IRA_Results2',graphLab='6s' 
+                       + str(i) + 's')
+        IRAPF.simulatePShock(w0,i,.75)
+        simulations['6s' + str(i) + 'p'] = IRAPF.simulation
+        IRAPF.graphSim(saveFig=1,savePath='IRA_Results2',graphLab='6s' 
                        + str(i) + 'p')
         
-    with open('IRA_Results2/IRAPF_Simulations.pickle','wb') as handle:
+    with open('IRA_Results2/IRAPF_Simulations2.pickle','wb') as handle:
         pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
         
-    with open('IRA_Results2/IRAPF_Simulations.pickle', 'rb') as handle:
+    with open('IRA_Results2/IRAPF_Simulations2.pickle', 'rb') as handle:
         stored_simulation = pickle.load(handle)
   
-#    
+    
 #    # Permanent dip in income
 #    
 #    y[1:] = 1 - .5/y[1:].size
