@@ -2574,12 +2574,32 @@ def main():
     t = .2
     k = utility(1,gam=g) - utility(.95,gam=g)
     simulations = {}
+    simulations2 = {}
     
     IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,k,T,T_ira,1)
     IRAPF.solve()
     IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results4',graphLab=str(T) + 'p')
     simulations[str(T) + 'p'] = IRAPF.simulation
+    
+    IRAPF2 = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,0.0,T,T_ira,1)
+    IRAPF2.solve()
+    IRAPF.simulate(w0)
+    simulations2[str(T) + 'p'] = IRAPF.simulation
+    
+    for i in [0.5,0.25]:
+        for j in [2,3]:
+            IRAPF.simulate2Shock(w0,j,i)
+            simulations[str(T) + 's' + str(i) + 's'] = IRAPF.simulation
+            
+            IRAPF2.simulate2Shock(w0,j,i)
+            simulations2[str(T) + 's' + str(i) + 's'] = IRAPF2.simulation
+            
+    with open('IRA_Results4/IRAPF_Simulations' + str(T) + '.pickle','wb') as handle:
+        pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    with open('IRA_Results4/IRAPF2_Simulations' + str(T) + '.pickle','wb') as handle:
+        pickle.dump(simulations2, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    
 #    
 #    
 #    for i in range(1,T-1):
