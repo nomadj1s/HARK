@@ -2576,30 +2576,36 @@ def main():
     simulations = {}
     simulations2 = {}
     
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,k,T,T_ira,1)
+    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,0.0,T,T_ira,1)
     IRAPF.solve()
     IRAPF.simulate(w0)
     simulations[str(T) + 'p'] = IRAPF.simulation
     
-    IRAPF2 = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,0.0,T,T_ira,1)
+    with open('IRA_Results4/IRAPF_Simulations' + str(T) + '.pickle','wb') as handle:
+        pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    IRAPF2 = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,k,T,T_ira,1)
     IRAPF2.solve()
     IRAPF.simulate(w0)
     simulations2[str(T) + 'p'] = IRAPF.simulation
     
-    for i in [0.5,0.25]:
-        for j in [2,3]:
-            IRAPF.simulate2Shock(w0,j,i)
-            simulations[str(T) + 's' + str(i) + 's'] = IRAPF.simulation
-            
-            IRAPF2.simulate2Shock(w0,j,i)
-            simulations2[str(T) + 's' + str(i) + 's'] = IRAPF2.simulation
-            
-    with open('IRA_Results4/IRAPF_Simulations' + str(T) + '.pickle','wb') as handle:
-        pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    
     with open('IRA_Results4/IRAPF2_Simulations' + str(T) + '.pickle','wb') as handle:
         pickle.dump(simulations2, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
+    for i in [0.5,0.25]:
+        for j in [2,3]:
+            IRAPF.simulate2Shock(w0,j,i)
+            simulations[str(T) + 's' + str(j) + 's' + str(i)[2]] = IRAPF.simulation
+            
+            with open('IRA_Results4/IRAPF_Simulations' + str(T) + str(j) + str(i)[2] + '.pickle','wb') as handle:
+                pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            
+            IRAPF2.simulate2Shock(w0,j,i)
+            simulations2[str(T) + 's' + str(j) + 's' + str(i)[2]] = IRAPF2.simulation
+            
+            with open('IRA_Results4/IRAPF2_Simulations' + str(T) + str(j) + str(i)[2] + '.pickle','wb') as handle:
+                pickle.dump(simulations2, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 #    
 #    
 #    for i in range(1,T-1):
