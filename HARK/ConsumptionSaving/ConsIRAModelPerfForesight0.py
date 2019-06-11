@@ -2574,15 +2574,32 @@ def main():
     t = .2
     k = utility(1,gam=g) - utility(.95,gam=g)
     simulations = {}
-    simulations2 = {}
     
-    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,0.0,T,T_ira,1)
+    IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,k,T,T_ira,1)
     IRAPF.solve()
     IRAPF.simulate(w0)
-    simulations[str(T) + 'p'] = IRAPF.simulation
+    IRAPF.graphSim(saveFig=1,savePath='IRA_Results6',graphLab=str(T) + 'p')
+    simulations[str(T) + 'p'] = IRAPF.simulation   
     
-    with open('IRA_Results4/IRAPF_Simulations' + str(T) + '.pickle','wb') as handle:
+    for i in range(1,T-1):
+        for j in [0.5,.25]:
+            
+            IRAPF.simulate1Shock(w0,i,j)
+            simulations[str(T) + 's' + str(i) + str(j)[2]] = IRAPF.simulation
+            IRAPF.graphSim(saveFig=1,savePath='IRA_Results6',graphLab=str(T) + 's' 
+                       + str(i) + str(j)[2])
+            IRAPF.simulate2Shock(w0,i,j)
+            simulations[str(T) + 's' + str(i) + 's' + str(j)[2]] = IRAPF.simulation
+            IRAPF.graphSim(saveFig=1,savePath='IRA_Results6',graphLab=str(T) + 's' 
+                       + str(i) + 's' + str(j)[2])
+            IRAPF.simulatePShock(w0,i,j)
+            simulations[str(T) + 's' + str(i) + 'p' + str(j)[2]] = IRAPF.simulation
+            IRAPF.graphSim(saveFig=1,savePath='IRA_Results6',graphLab=str(T) + 's' 
+                       + str(i) + 'p' + str(j)[2])
+        
+    with open('IRA_Results6/IRAPF_Simulations' + str(T) + '.pickle','wb') as handle:
         pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
+<<<<<<< HEAD
     
     IRAPF2 = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,k,T,T_ira,1)
     IRAPF2.solve()
@@ -2605,6 +2622,11 @@ def main():
             
             with open('IRA_Results4/IRAPF2_Simulations' + str(T) + str(j) + str(i)[2] + '.pickle','wb') as handle:
                 pickle.dump(simulations2, handle, protocol=pickle.HIGHEST_PROTOCOL)
+=======
+        
+    with open('IRA_Results6/IRAPF_Simulations' + str(T) + '.pickle','rb') as handle:
+        stored_simulation = pickle.load(handle)
+>>>>>>> e41e1407c52ef3104ada0a82348e16b48534e09e
 
 #    
 #    
