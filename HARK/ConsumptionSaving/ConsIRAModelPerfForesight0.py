@@ -2586,8 +2586,8 @@ def main():
     
     IRAPF2 = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,k,T,T_ira,1)
     IRAPF2.solve()
-    IRAPF.simulate(w0)
-    simulations2[str(T) + 'p'] = IRAPF.simulation
+    IRAPF2.simulate(w0)
+    simulations2[str(T) + 'p'] = IRAPF2.simulation
     
     with open('IRA_Results4/IRAPF2_Simulations' + str(T) + '.pickle','wb') as handle:
         pickle.dump(simulations2, handle, protocol=pickle.HIGHEST_PROTOCOL)
