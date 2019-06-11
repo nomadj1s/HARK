@@ -2577,11 +2577,11 @@ def main():
     
     IRAPF = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,k,T,T_ira,1)
     IRAPF.solve()
-    IRAPF.simulate(w0)
-    IRAPF.graphSim(saveFig=1,savePath='IRA_Results6',graphLab=str(T) + 'p')
-    simulations[str(T) + 'p'] = IRAPF.simulation   
+#    IRAPF.simulate(w0)
+#    IRAPF.graphSim(saveFig=1,savePath='IRA_Results6',graphLab=str(T) + 'p')
+#    simulations[str(T) + 'p'] = IRAPF.simulation   
     
-    for i in range(1,T-1):
+    for i in range(2,T-1):
         for j in [0.5,.25]:
             
             IRAPF.simulate1Shock(w0,i,j)
@@ -2599,34 +2599,9 @@ def main():
         
     with open('IRA_Results6/IRAPF_Simulations' + str(T) + '.pickle','wb') as handle:
         pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
-<<<<<<< HEAD
-    
-    IRAPF2 = IRAPerfForesightConsumerType(y,beta,g,ra,r,t,dMax,k,T,T_ira,1)
-    IRAPF2.solve()
-    IRAPF2.simulate(w0)
-    simulations2[str(T) + 'p'] = IRAPF2.simulation
-    
-    with open('IRA_Results4/IRAPF2_Simulations' + str(T) + '.pickle','wb') as handle:
-        pickle.dump(simulations2, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    
-    for i in [0.5,0.25]:
-        for j in [2,3]:
-            IRAPF.simulate2Shock(w0,j,i)
-            simulations[str(T) + 's' + str(j) + 's' + str(i)[2]] = IRAPF.simulation
-            
-            with open('IRA_Results4/IRAPF_Simulations' + str(T) + str(j) + str(i)[2] + '.pickle','wb') as handle:
-                pickle.dump(simulations, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            
-            IRAPF2.simulate2Shock(w0,j,i)
-            simulations2[str(T) + 's' + str(j) + 's' + str(i)[2]] = IRAPF2.simulation
-            
-            with open('IRA_Results4/IRAPF2_Simulations' + str(T) + str(j) + str(i)[2] + '.pickle','wb') as handle:
-                pickle.dump(simulations2, handle, protocol=pickle.HIGHEST_PROTOCOL)
-=======
         
     with open('IRA_Results6/IRAPF_Simulations' + str(T) + '.pickle','rb') as handle:
         stored_simulation = pickle.load(handle)
->>>>>>> e41e1407c52ef3104ada0a82348e16b48534e09e
 
 #    
 #    
