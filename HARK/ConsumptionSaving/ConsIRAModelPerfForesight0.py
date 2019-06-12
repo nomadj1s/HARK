@@ -2581,7 +2581,7 @@ def main():
 #    IRAPF.graphSim(saveFig=1,savePath='IRA_Results6',graphLab=str(T) + 'p')
 #    simulations[str(T) + 'p'] = IRAPF.simulation   
     
-    for i in range(2,T-1):
+    for i in range(3,T-1):
         for j in [0.5,.25]:
             
             IRAPF.simulate1Shock(w0,i,j)
