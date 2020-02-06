@@ -2133,8 +2133,8 @@ class ConsIRAPFinitial(HARKobject):
             d[...,2][cap] = w[cap]
             b[...,2][cap] = w[cap]
             v[...,2][cap] = beta*solCap['vFunc'][cap]
-            vPm[...,1][cap] = r*beta*solCap['vPmFunc'][cap]
-            vPn[...,1][cap] = 0.0
+            vPm[...,2][cap] = r*beta*solCap['vPmFunc'][cap]
+            vPn[...,2][cap] = 0.0
 
         # Find index of max utility among valid solutions
         max_state = np.argmax(v,axis=-1)
